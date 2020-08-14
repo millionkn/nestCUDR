@@ -16,3 +16,21 @@ const keyLoaderProxy = new Proxy<any>({}, {
 export function loadKeyOfTypeFun(fun: (obj: any) => any) {
   return fun(keyLoaderProxy) as string;
 }
+
+export function loadMetadata<T>(metadateKey: any, defaultValue: () => T, target: any, key?: string | symbol): T {
+  if (key) {
+    if (!Reflect.hasMetadata(metadateKey, target, key)) {
+      const value = defaultValue();
+      Reflect.defineMetadata(metadateKey, value, target, key);
+      return value;
+    }
+    return Reflect.getMetadata(metadateKey, target, key)
+  } else {
+    if (!Reflect.hasMetadata(metadateKey, target)) {
+      const value = defaultValue();
+      Reflect.defineMetadata(metadateKey, value, target);
+      return value;
+    }
+    return Reflect.getMetadata(metadateKey, target)
+  }
+}
