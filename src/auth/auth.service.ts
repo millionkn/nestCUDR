@@ -5,10 +5,10 @@ import { ID } from 'src/cudr/cudr.module';
 import { AccountEntity } from './authEntities';
 
 @Injectable()
-export class AuthService {
+export class AuthService<T> {
 
   @InjectRepository(AccountEntity)
-  private accountRepository!: Repository<AccountEntity>
+  private accountRepository!: Repository<AccountEntity<T>>
 
   async login(session: Express.Session, { username, password }: any): Promise<ID | null> {
     let target = await this.accountRepository.findOne({ username, password });
@@ -17,7 +17,7 @@ export class AuthService {
     return target.id;
   }
 
-  async account(session: Express.Session): Promise<AccountEntity | null> {
+  async account(session: Express.Session): Promise<AccountEntity<T> | null> {
     if (!session.savedUser) {
       return null;
     }

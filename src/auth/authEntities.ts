@@ -1,8 +1,15 @@
-import { PrimaryGeneratedColumn, Entity, Column, ManyToMany, JoinTable } from "typeorm";
+import { PrimaryGeneratedColumn, Entity, Column, ManyToMany, JoinTable, OneToOne, JoinColumn } from "typeorm";
 import { ID } from "src/cudr/cudr.module";
 
+let UserClass: any = null;
+export function AccountRelated(): ClassDecorator {
+  return (klass) => {
+    UserClass = ()=>klass;
+  }
+}
+
 @Entity()
-export class AccountEntity {
+export class AccountEntity<T> {
   @PrimaryGeneratedColumn('uuid')
   id!: ID;
   @Column()
@@ -12,6 +19,9 @@ export class AccountEntity {
   @ManyToMany(() => GroupEntity, { eager: true })
   @JoinTable()
   groups!: GroupEntity[]
+  @JoinColumn()
+  @OneToOne(() => UserClass())
+  related!: T
 }
 
 @Entity()
