@@ -1,4 +1,4 @@
-import { Type, Controller, Post, Body } from "@nestjs/common";
+import { Type, Controller, Post, Body, ForbiddenException } from "@nestjs/common";
 import { CudrBaseEntity, loadCudrMetadata, useTransformerTo, loadTransformerFrom, ID } from "./cudr.module";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, SelectQueryBuilder, Brackets, WhereExpression } from "typeorm";
@@ -25,9 +25,11 @@ function* resolveObjectEmptyKey(
   bodyValue: any;
   length: number;
 }, void, undefined> {
+  let { privateColumns } = loadCudrMetadata(klass);
   let index = 0;
   for (const key in object) {
     if (key === '') { continue }
+    if (privateColumns.includes(key)) { throw new ForbiddenException() }
     const bodyValue = object[key];
     const subKlass = Reflect.getMetadata('design:type', klass.prototype, key);
     if (typeof bodyValue !== 'object' || bodyValue === null) {

@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Inject, Type } from "@nestjs/common";
+import { Controller, Post, Body, Inject, Type, ForbiddenException } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import { Connection, EntityManager } from "typeorm";
-import { CudrBaseEntity, loadClassByEntityName, useTransformerFrom, ID } from "./cudr.module";
+import { CudrBaseEntity, loadClassByEntityName, useTransformerFrom, ID, loadCudrMetadata } from "./cudr.module";
 import { loadKeyOfTypeFun } from "src/utils";
 
 type UpdateMission = {
@@ -55,6 +55,10 @@ export class MissionListController {
   private async saveChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity>) {
     let id: ID;
     const chainInfo = loadChainPoint(klass.prototype);
+    const { privateColumns } = loadCudrMetadata(klass);
+    if (Object.keys(target).find((key) => privateColumns.includes(key))) {
+      throw new ForbiddenException()
+    }
     const targetWithOutChainPoint = { ...target };
     chainInfo.forEach((info) => delete targetWithOutChainPoint[info.key])
     if (typeof target.id === 'string') {
@@ -95,6 +99,10 @@ export class MissionListController {
 
   private async deleteChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity>) {
     const chainInfo = loadChainPoint(klass.prototype);
+    const { privateColumns } = loadCudrMetadata(klass);
+    if (Object.keys(target).find((key) => privateColumns.includes(key))) {
+      throw new ForbiddenException()
+    }
     for await (const info of chainInfo) {
       const otherSideKey = loadKeyOfTypeFun(info.otherSide);
       const savedArr = await manager.find(info.klassFun(), { where: { [otherSideKey]: target } });

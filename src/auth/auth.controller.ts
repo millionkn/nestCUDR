@@ -2,9 +2,9 @@ import { Controller, Inject, Post, Body, Session, Res, UseGuards, forwardRef, Fo
 import { AuthService } from './auth.service';
 
 @Controller('api/auth')
-export class AuthController<T> {
+export class AuthController {
   @Inject(forwardRef(() => AuthService))
-  authService!: AuthService<T>;
+  authService!: AuthService;
 
   @Post('login')
   async login(@Body() body: any, @Session() session: Express.Session) {

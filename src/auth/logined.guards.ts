@@ -4,7 +4,7 @@ import { AuthService } from "./auth.service";
 @Injectable()
 export class LoginedGuard implements CanActivate {
   @Inject(forwardRef(() => AuthService))
-  private authService!: AuthService<any>;
+  private authService!: AuthService;
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     let session = context.switchToHttp().getRequest<Express.Request>().session;

@@ -3,6 +3,7 @@ import { PrimaryGeneratedColumn, Entity } from 'typeorm';
 import { BlobModule } from './blob/blob.module';
 import { createCudrController } from './createCudrController';
 import { MissionListController } from './MissionList.controller';
+import { loadMetadata } from 'src/utils';
 
 type CudrOpt = {
   /**
@@ -15,6 +16,7 @@ const savedInfoMap = new Map<Type<CudrBaseEntity>, {
   cudrOpt: CudrOpt,
   controllerClassFun: () => Type<object>,
   entityName: string,
+  privateColumns: string[],
 }>();
 const savedEntity = new Map<string, Type<CudrBaseEntity>>();
 /**
@@ -24,7 +26,7 @@ const savedEntity = new Map<string, Type<CudrBaseEntity>>();
 export function CudrEntity(opt: CudrOpt) {
   return (klass: Type<CudrBaseEntity>) => {
     if (!/Entity$/.test(klass.name)) { throw new Error(`${klass.name}类名必须以'Entity'结尾`) }
-    let entityName = klass.name.replace(/Entity$/, '');
+    let entityName = klass.name.replace(/Entity$/, '').toLowerCase();
     if (savedInfoMap.has(klass)) { throw new Error(`重复的CudrEntity:${klass.name}`) }
     savedEntity.set(entityName, klass);
     const controllerClassFun = (() => {
@@ -38,7 +40,13 @@ export function CudrEntity(opt: CudrOpt) {
       cudrOpt: opt,
       controllerClassFun,
       entityName,
+      privateColumns: loadMetadata(PrivateColumn, () => new Array<string>(), klass.prototype)
     });
+  }
+}
+export function PrivateColumn() {
+  return (prototype: any, key: string) => {
+    loadMetadata(PrivateColumn, () => new Array<string>(), prototype).push(key)
   }
 }
 export function loadCudrMetadata(klass: Type<CudrBaseEntity>) {
@@ -49,7 +57,7 @@ export function loadCudrMetadata(klass: Type<CudrBaseEntity>) {
   return info;
 }
 export function loadClassByEntityName(entityName: string) {
-  const entityKlass = savedEntity.get(entityName);
+  const entityKlass = savedEntity.get(entityName.toLowerCase());
   if (entityKlass === undefined) { throw new Error(`未声明CudrEntity:${entityName}`) }
   return entityKlass;
 }
