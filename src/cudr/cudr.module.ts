@@ -1,9 +1,10 @@
 import { Module, DynamicModule, Type, CanActivate } from '@nestjs/common';
-import { PrimaryGeneratedColumn, Entity } from 'typeorm';
+import { PrimaryGeneratedColumn, Entity, CreateDateColumn } from 'typeorm';
 import { BlobModule } from './blob/blob.module';
 import { createCudrController } from './createCudrController';
 import { MissionListController } from './MissionList.controller';
 import { loadMetadata } from 'src/utils';
+import * as moment from 'moment';
 
 type CudrOpt = {
   /**
@@ -92,6 +93,10 @@ export type ID = typeof ID;
 export class CudrBaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: ID;
+  @TransformerFrom((str: string) => moment(str, 'YYYY-MM-DD HH:mm:ss'))
+  @TransformerTo((date: Date) => moment(date).format('YYYY-MM-DD HH:mm:ss'))
+  @CreateDateColumn()
+  createDate!: Date
 }
 export function useTransformerTo(klass: Type<CudrBaseEntity>, object: any) {
   if (object === undefined || object === null) { return }
