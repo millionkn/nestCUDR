@@ -1,6 +1,5 @@
-import { Controller, Post, Body, Inject, Type, ForbiddenException } from "@nestjs/common";
-import { ModuleRef } from "@nestjs/core";
-import { Connection, EntityManager } from "typeorm";
+import { Controller, Post, Body, Type, ForbiddenException } from "@nestjs/common";
+import { EntityManager, getConnection } from "typeorm";
 import { CudrBaseEntity, loadClassByEntityName, useTransformerFrom, ID, loadCudrMetadata } from "./cudr.module";
 import { loadKeyOfTypeFun } from "src/utils";
 
@@ -37,13 +36,9 @@ export function ChainPoint<T extends CudrBaseEntity>(
 }
 @Controller('cudr/transaction')
 export class MissionListController {
-  @Inject(ModuleRef)
-  ref!: ModuleRef;
-  @Inject(Connection)
-  private connection!: Connection
   @Post('chain/save')
   async save(@Body() missionList: UpdateMission[]) {
-    await this.connection.transaction(async (manager) => {
+    await getConnection().transaction(async (manager) => {
       for await (const mission of missionList) {
         const klass = loadClassByEntityName(mission.entityName);
         useTransformerFrom(klass, mission.object)
@@ -90,7 +85,7 @@ export class MissionListController {
 
   @Post('chain/delete')
   async delete(@Body() missionList: DeleteMission[]) {
-    await this.connection.transaction(async (manager) => {
+    await getConnection().transaction(async (manager) => {
       for await (const mission of missionList) {
         await this.deleteChain(manager, mission.object, loadClassByEntityName(mission.entityName));
       }
