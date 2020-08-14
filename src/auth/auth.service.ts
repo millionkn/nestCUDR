@@ -1,8 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Type } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, getRepository } from 'typeorm';
 import { ID } from 'src/cudr/cudr.module';
 import { AccountEntity } from './authEntities';
+
+const userType = new Array<Type<{ account: AccountEntity }>>();
+
+export function UserType() {
+  return (klass: Type<{ account: AccountEntity }>) => {
+    userType.push(klass);
+  }
+}
 
 @Injectable()
 export class AuthService {
@@ -32,5 +40,12 @@ export class AuthService {
     session.destroy((err) => {
       throw err
     });
+  }
+  async userType(account: { id: ID }) {
+    for await (const type of userType) {
+      const target = await getRepository(type).findOne({ account });
+      if (target) { return type }
+    }
+    return null;
   }
 }
