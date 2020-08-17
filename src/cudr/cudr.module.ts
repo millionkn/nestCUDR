@@ -5,6 +5,7 @@ import { createCudrController } from './createCudrController';
 import { MissionListController } from './MissionList.controller';
 import { loadMetadata } from 'src/utils';
 import * as moment from 'moment';
+import { JsonQueryService } from './json-query.service';
 
 type CudrOpt = {
   /**
@@ -146,9 +147,15 @@ export class CudrModule {
   static factory(): DynamicModule {
     return {
       module: CudrModule,
+      providers: [
+        JsonQueryService,
+      ],
       controllers: [
         MissionListController,
         ...[...savedInfoMap.values()].map((info) => info.controllerClassFun()),
+      ],
+      exports: [
+        JsonQueryService,
       ],
     }
   }
