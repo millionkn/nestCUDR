@@ -41,10 +41,10 @@ export class AuthService {
       throw err
     });
   }
-  async userType(account: { id: ID }) {
+  async toUserEntity(account: { id: ID }) {
     for await (const type of userType) {
       const target = await getRepository(type).findOne({ account });
-      if (target) { return type }
+      if (target) { return target }
     }
     return null;
   }
