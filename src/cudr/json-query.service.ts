@@ -6,7 +6,7 @@ import { SelectQueryBuilder, WhereExpression, Brackets, getRepository } from 'ty
 export type WhereOption<T extends CudrBaseEntity> = {
   [key in Extract<keyof T, string>]?
   : T[key] extends ID ? { ''?: { type: 'in', value: string[] } }
-  : T[key] extends CudrBaseEntity ? WhereOption<T[key]> & { ''?: { type: 'nullable', value: boolean } }
+  : T[key] extends CudrBaseEntity ? WhereOption<T[key]> & { ''?: ({ type: 'nullable', value: boolean } | { type: 'isNull', value: boolean }) }
   : T[key] extends string ? { ''?: { sortIndex?: number } & ({ type: 'like', value: string } | { type: 'equal', value: string }) }
   : T[key] extends number ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: number, moreOrEqual: number }) }
   : T[key] extends Date ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: string, moreOrEqual: string }) }
@@ -126,6 +126,11 @@ function resolveWhere<T extends CudrBaseEntity>(
               whereArr.push([`${alias}.${key} is not null`, {}])
             }
             continue
+          } else if (bodyValue.type === 'isNull') {
+            if(bodyValue.value){
+              whereArr.push([`${alias}.${key} is null`, {}]);
+            }
+            continue;
           }
         } else if (klass === Symbol) {
           if (bodyValue.type === 'in') {
