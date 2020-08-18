@@ -11,7 +11,8 @@ export class BusinessGateway {
   async handleMessage(socket: Socket, payload: any) {
     const account = await this.auth.accountSocket(socket);
     if (account === null) { throw '尚未登录' }
-    const user = this.auth.toUserEntity(account);
+    const user = await this.auth.toUserEntity(account);
+    if (user === null) { throw '未知用户' }
     return user;
   }
 }
