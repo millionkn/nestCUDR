@@ -4,11 +4,12 @@ import { Repository, getRepository } from 'typeorm';
 import { ID } from 'src/utils';
 import { AccountEntity } from './authEntities';
 import { Socket } from 'socket.io';
+import { CudrBaseEntity } from 'src/cudr/CudrBase.entity';
 
-const userType = new Array<Type<{ account: AccountEntity }>>();
+const userType = new Array<Type<CudrBaseEntity & { account: AccountEntity }>>();
 
 export function UserType() {
-  return (klass: Type<{ account: AccountEntity }>) => {
+  return (klass: Type<CudrBaseEntity & { account: AccountEntity }>) => {
     userType.push(klass);
   }
 }
@@ -64,7 +65,7 @@ export class AuthService {
     return str;
   }
   async bindSocket(socket: Socket, socketStr: string) {
-    if(this.savedSocketStrMapAccount.has(socketStr)){
+    if (this.savedSocketStrMapAccount.has(socketStr)) {
       this.savedSocketMapSocketStr.set(socket.id, socketStr);
       return true
     }
