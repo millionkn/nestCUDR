@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountEntity, GroupEntity, RoleEntity } from './authEntities';
+import { AuthGateway } from './auth.gateway';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AccountEntity, GroupEntity, RoleEntity } from './authEntities';
   ],
   providers: [
     AuthService,
+    AuthGateway,
   ],
   controllers: [AuthController],
   exports: [AuthService],

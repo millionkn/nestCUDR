@@ -18,6 +18,6 @@ import { BusinessModule } from './business/Business.module';
     AuthModule,
     CudrModule,
     RepositoryModule,
-  ]
+  ],
 })
 export class AppModule { }

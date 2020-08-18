@@ -17,7 +17,7 @@ export class AuthController {
 
   @Post('currentUser')
   async currentUser(@Session() session: Express.Session) {
-    return await this.authService.account(session);
+    return await this.authService.accountSession(session);
   }
 
   @Post('logout')
@@ -31,5 +31,13 @@ export class AuthController {
       if (!hasRole) { return false; }
     }
     return true;
+  }
+  @Post('socketStr')
+  async socketStr(@Session() session: Express.Session) {
+    const str = await this.authService.loadSocketStr(session);
+    if (str === null) {
+      throw new ForbiddenException('尚未登录')
+    }
+    return { str };
   }
 }

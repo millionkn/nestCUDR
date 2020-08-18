@@ -9,7 +9,7 @@ export class LoginedGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     let session = context.switchToHttp().getRequest<Express.Request>().session;
     if (session) {
-      const account = await this.authService.account(session)
+      const account = await this.authService.accountSession(session)
       return account !== null;
     }
     return false;
