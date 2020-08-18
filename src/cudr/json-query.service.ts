@@ -150,7 +150,7 @@ function resolveWhere<T extends CudrBaseEntity>(
               ])
               continue
             }
-          } else if (klass.prototype instanceof Number) {
+          } else if (klass === Number) {
             if (bodyValue.type === 'between') {
               whereArr.push([
                 `${alias}.${key} between :more and :less`,
@@ -161,7 +161,7 @@ function resolveWhere<T extends CudrBaseEntity>(
               ])
               continue
             }
-          } else if (klass.prototype instanceof String) {
+          } else if (klass === String) {
             if (bodyValue.type === 'like') {
               whereArr.push([`${alias}.${key} like :value`, { value: `%${from(bodyValue.value)}%` }])
               continue
