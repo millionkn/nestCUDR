@@ -1,7 +1,7 @@
 import { Injectable, Type } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, getRepository } from 'typeorm';
-import { ID } from 'src/cudr/cudr.module';
+import { ID } from 'src/utils';
 import { AccountEntity } from './authEntities';
 
 const userType = new Array<Type<{ account: AccountEntity }>>();

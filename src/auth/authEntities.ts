@@ -1,5 +1,5 @@
 import { PrimaryGeneratedColumn, Entity, Column, ManyToMany, JoinTable } from "typeorm";
-import { ID } from "src/cudr/cudr.module";
+import { ID } from "src/utils";
 
 @Entity()
 export class AccountEntity {

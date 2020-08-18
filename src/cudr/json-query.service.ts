@@ -1,6 +1,8 @@
 import { Injectable, Type, ForbiddenException } from '@nestjs/common';
-import { CudrBaseEntity, ID, loadCudrMetadata, loadTransformerFrom } from './cudr.module';
+import { loadCudrMetadata } from './cudr.module';
 import { SelectQueryBuilder, WhereExpression, Brackets, getRepository } from 'typeorm';
+import { CudrBaseEntity, loadTransformerFrom } from './CudrBase.entity';
+import { ID } from 'src/utils';
 
 
 export type WhereOption<T extends CudrBaseEntity> = {
@@ -127,7 +129,7 @@ function resolveWhere<T extends CudrBaseEntity>(
             }
             continue
           } else if (bodyValue.type === 'isNull') {
-            if(bodyValue.value){
+            if (bodyValue.value) {
               whereArr.push([`${alias}.${key} is null`, {}]);
             }
             continue;

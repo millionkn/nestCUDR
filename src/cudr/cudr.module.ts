@@ -1,11 +1,10 @@
-import { Module, DynamicModule, Type, CanActivate } from '@nestjs/common';
-import { PrimaryGeneratedColumn, Entity, CreateDateColumn } from 'typeorm';
+import { Module, DynamicModule, CanActivate, Type } from '@nestjs/common';
 import { BlobModule } from './blob/blob.module';
-import { createCudrController } from './createCudrController';
 import { MissionListController } from './MissionList.controller';
-import { loadMetadata } from 'src/utils';
-import * as moment from 'moment';
 import { JsonQueryService } from './json-query.service';
+import { CudrBaseEntity, loadTransformerTo } from './CudrBase.entity';
+import { createCudrController } from './createCudrController';
+import { loadMetadata } from 'src/utils';
 
 type CudrOpt = {
   /**
@@ -64,41 +63,6 @@ export function loadClassByEntityName(entityName: string) {
   return entityKlass;
 }
 
-export function loadTransformerTo(prototype: any): Map<string, (value: any) => any> {
-  if (!Reflect.hasMetadata(loadTransformerTo, prototype)) {
-    Reflect.defineMetadata(loadTransformerTo, new Map(), prototype);
-  }
-  return Reflect.getMetadata(loadTransformerTo, prototype);
-}
-export function loadTransformerFrom(prototype: any): Map<string, (value: any) => any> {
-  if (!Reflect.hasMetadata(loadTransformerFrom, prototype)) {
-    Reflect.defineMetadata(loadTransformerFrom, new Map(), prototype);
-  }
-  return Reflect.getMetadata(loadTransformerFrom, prototype);
-}
-/**到前端去 */
-export function TransformerTo(fun: (value: any) => any) {
-  return (prototype: any, key: string) => {
-    loadTransformerTo(prototype).set(key, fun);
-  }
-}
-/**从前端来 */
-export function TransformerFrom(fun: (value: any) => any) {
-  return (prototype: any, key: string) => {
-    loadTransformerFrom(prototype).set(key, fun);
-  }
-}
-const ID = Symbol();
-export type ID = typeof ID;
-@Entity()
-export class CudrBaseEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: ID;
-  @TransformerFrom((str: string) => moment(str, 'YYYY-MM-DD HH:mm:ss'))
-  @TransformerTo((date: Date) => moment(date).format('YYYY-MM-DD HH:mm:ss'))
-  @CreateDateColumn()
-  createDate!: Date
-}
 export function useTransformerTo(klass: Type<CudrBaseEntity>, object: any) {
   if (object === undefined || object === null) { return }
   if (object instanceof Array) {

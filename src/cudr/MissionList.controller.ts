@@ -1,7 +1,8 @@
 import { Controller, Post, Body, Type, ForbiddenException } from "@nestjs/common";
 import { EntityManager, getConnection } from "typeorm";
-import { CudrBaseEntity, loadClassByEntityName, useTransformerFrom, ID, loadCudrMetadata } from "./cudr.module";
-import { loadKeyOfTypeFun } from "src/utils";
+import { loadClassByEntityName, useTransformerFrom, loadCudrMetadata } from "./cudr.module";
+import { loadKeyOfTypeFun, ID } from "src/utils";
+import { CudrBaseEntity } from "./CudrBase.entity";
 
 type UpdateMission = {
   entityName: string,

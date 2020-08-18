@@ -1,8 +1,9 @@
 import { Entity, Column, OneToOne, JoinColumn } from "typeorm"
-import { CudrBaseEntity, CudrEntity, PrivateColumn } from "./cudr/cudr.module"
+import { CudrEntity, PrivateColumn } from "./cudr/cudr.module"
 import { GlobalRepository } from "./repository/repository.module"
 import { AccountEntity } from "./auth/authEntities"
 import { UserType } from "./auth/auth.service"
+import { CudrBaseEntity } from "./cudr/CudrBase.entity"
 
 @Entity()
 @GlobalRepository()

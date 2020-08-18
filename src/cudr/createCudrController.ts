@@ -1,6 +1,7 @@
 import { Type, Controller, Post, Body, Inject } from "@nestjs/common";
-import { CudrBaseEntity, loadCudrMetadata, useTransformerTo } from "./cudr.module";
+import { loadCudrMetadata, useTransformerTo } from "./cudr.module";
 import { WhereOption, JsonQueryService } from "./json-query.service";
+import { CudrBaseEntity } from "./CudrBase.entity";
 
 export function createCudrController<T extends CudrBaseEntity>(klass: Type<T>) {
   const { entityName } = loadCudrMetadata(klass)

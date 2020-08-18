@@ -34,3 +34,6 @@ export function loadMetadata<T>(metadateKey: any, defaultValue: () => T, target:
     return Reflect.getMetadata(metadateKey, target)
   }
 }
+
+const ID = Symbol();
+export type ID = typeof ID;
