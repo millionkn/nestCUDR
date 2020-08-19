@@ -1,18 +1,16 @@
-import { SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
-import { Inject, ForbiddenException } from '@nestjs/common';
-import { AuthService } from 'src/auth/auth.service';
+import { SubscribeMessage, WebSocketGateway, OnGatewayConnection } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
+import { CurrentUser } from 'src/auth/current-user.decorator';
+import { SocketMapSession } from 'src/socket-map-session';
 
 @WebSocketGateway()
-export class BusinessGateway {
-  @Inject(AuthService)
-  auth!: AuthService;
+export class BusinessGateway implements OnGatewayConnection {
+
   @SubscribeMessage('getUser')
-  async getUser(socket: Socket, payload: any) {
-    const account = await this.auth.accountSocket(socket);
-    if (account === null) { throw new ForbiddenException('尚未登录') }
-    const user = await this.auth.toUserEntity(account);
-    if (user === null) { throw new ForbiddenException('未知用户') }
+  async getUser(socket: Socket, payload: any, @CurrentUser() user: any) {
     return user;
+  }
+  async handleConnection(client: Socket) {
+    client.emit('auth', await SocketMapSession.createToken(client));
   }
 }

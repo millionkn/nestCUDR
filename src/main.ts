@@ -5,6 +5,7 @@ import * as bodyParser from 'body-parser';
 import { getConnection } from 'typeorm';
 import * as cors from 'cors';
 import * as express from 'express';
+import { sessionStore } from './sessionStore';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,7 +16,10 @@ async function bootstrap() {
   })(getConnection());
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: false }));
-  app.use(session({ secret: 'session-secret' }))
+  app.use(session({
+    store: sessionStore,
+    secret: 'session-secret'
+  }))
   app.use(cors())
   app.use(express.static('static'))
   await app.listen(3000);
