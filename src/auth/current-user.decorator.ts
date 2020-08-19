@@ -28,11 +28,11 @@ export const CurrentUser = createParamDecorator(
     if (contextType === 'http') {
       const request = ctx.switchToHttp().getRequest<Express.Request>();
       if (!request.session) { throw new ForbiddenException('尚未登录') }
-      return getCurrentUserSession(request.session)
+      return await getCurrentUserSession(request.session)
     } else if (contextType === 'ws') {
       const ws = ctx.switchToWs();
       const socket = ws.getClient<Socket>();
-      return getCurrentUserSocket(socket)
+      return await getCurrentUserSocket(socket)
     }
     throw `@CurrentUser 尚未实现 ${contextType}`
   },
