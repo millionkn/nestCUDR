@@ -36,7 +36,8 @@ export function loadMetadata<T>(metadateKey: any, defaultValue: () => T, target:
 }
 
 const ID = Symbol();
-export type ID = typeof ID;
+type IDT<T> = { [ID]: T };
+export type ID<T> = String & IDT<T>
 
 const oneTimeSymbol = Symbol();
 export function oneTimeFunc<T>(func: () => T): () => T {

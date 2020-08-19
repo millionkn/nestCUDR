@@ -3,7 +3,7 @@ import { loadCudrMetadata, useTransformerTo } from "./cudr.module";
 import { WhereOption, JsonQueryService } from "./json-query.service";
 import { CudrBaseEntity } from "./CudrBase.entity";
 
-export function createCudrController<T extends CudrBaseEntity>(klass: Type<T>) {
+export function createCudrController<T extends CudrBaseEntity<any>>(klass: Type<T>) {
   const { entityName } = loadCudrMetadata(klass)
   @Controller(`cudr/${entityName}`)
   class CudrController {

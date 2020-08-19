@@ -10,7 +10,7 @@ import { CudrBaseEntity } from "./cudr/CudrBase.entity"
 @CudrEntity({
 })
 @UserType()
-export class UserEntity extends CudrBaseEntity {
+export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @Column()
   name!: string
   @PrivateColumn()

@@ -3,9 +3,9 @@ import { CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { ID } from "src/utils";
 
 @Entity()
-export class CudrBaseEntity {
+export class CudrBaseEntity<T> {
   @PrimaryGeneratedColumn('uuid')
-  id!: ID;
+  id!: ID<T>;
   @TransformerFrom((str: string) => moment(str, 'YYYY-MM-DD HH:mm:ss'))
   @TransformerTo((date: Date) => moment(date).format('YYYY-MM-DD HH:mm:ss'))
   @CreateDateColumn()

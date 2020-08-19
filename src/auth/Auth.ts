@@ -6,15 +6,15 @@ import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
 
 const accountRepository = oneTimeFunc(() => getRepository(AccountEntity));
 
-const userType = new Array<Type<CudrBaseEntity & { account: AccountEntity }>>();
+const userType = new Array<Type<CudrBaseEntity<any> & { account: AccountEntity }>>();
 
 export function UserType() {
-  return (klass: Type<CudrBaseEntity & { account: AccountEntity }>) => {
+  return (klass: Type<CudrBaseEntity<any> & { account: AccountEntity }>) => {
     userType.push(klass);
   }
 }
 
-export async function login(session: Express.SessionData, { username, password }: any): Promise<ID | null> {
+export async function login(session: Express.SessionData, { username, password }: any): Promise<ID<'AccountEntity'> | null> {
   let target = await accountRepository().findOne({ username, password });
   if (!target) { return null }
   session.savedUser = target;
@@ -35,7 +35,7 @@ export async function logout(session: Express.Session) {
     throw err
   });
 }
-export async function toUserEntity(account: { id: ID }) {
+export async function toUserEntity(account: { id: ID<'AccountEntity'> }) {
   for await (const type of userType) {
     const target = await getRepository(type).findOne({ account });
     if (target) { return target }

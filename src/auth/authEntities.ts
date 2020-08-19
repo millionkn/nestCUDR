@@ -4,7 +4,7 @@ import { ID } from "src/utils";
 @Entity()
 export class AccountEntity {
   @PrimaryGeneratedColumn('uuid')
-  id!: ID;
+  id!: ID<'AccountEntity'>;
   @Column()
   username!: string;
   @Column({ select: false })
@@ -17,7 +17,7 @@ export class AccountEntity {
 @Entity()
 export class GroupEntity {
   @PrimaryGeneratedColumn('uuid')
-  id!: ID;
+  id!: ID<'GroupEntity'>;
   @Column()
   name!: string;
   @ManyToMany(() => RoleEntity, { eager: true })
@@ -28,7 +28,7 @@ export class GroupEntity {
 @Entity()
 export class RoleEntity {
   @PrimaryGeneratedColumn('uuid')
-  id!: ID;
+  id!: ID<'RoleEntity'>;
   @Column()
   name!: string;
 }

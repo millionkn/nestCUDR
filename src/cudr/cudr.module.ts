@@ -13,19 +13,19 @@ type CudrOpt = {
   guards?: () => (Function | CanActivate)[],
 }
 
-const savedInfoMap = new Map<Type<CudrBaseEntity>, {
+const savedInfoMap = new Map<Type<CudrBaseEntity<any>>, {
   cudrOpt: CudrOpt,
   controllerClassFun: () => Type<object>,
   entityName: string,
   privateColumns: string[],
 }>();
-const savedEntity = new Map<string, Type<CudrBaseEntity>>();
+const savedEntity = new Map<string, Type<CudrBaseEntity<any>>>();
 /**
  * 被修饰的实体会产生相应的controller，提供对应的cudr接口，具体看readme
  * @param opt 
  */
 export function CudrEntity(opt: CudrOpt) {
-  return (klass: Type<CudrBaseEntity>) => {
+  return (klass: Type<CudrBaseEntity<any>>) => {
     if (!/Entity$/.test(klass.name)) { throw new Error(`${klass.name}类名必须以'Entity'结尾`) }
     let entityName = klass.name.replace(/Entity$/, '').toLowerCase();
     if (savedInfoMap.has(klass)) { throw new Error(`重复的CudrEntity:${klass.name}`) }
@@ -50,7 +50,7 @@ export function PrivateColumn() {
     loadMetadata(PrivateColumn, () => new Array<string>(), prototype).push(key)
   }
 }
-export function loadCudrMetadata(klass: Type<CudrBaseEntity>) {
+export function loadCudrMetadata(klass: Type<CudrBaseEntity<any>>) {
   const info = savedInfoMap.get(klass);
   if (info === undefined) {
     throw new Error(`未声明CudrEntity:${klass.name}`)
@@ -63,7 +63,7 @@ export function loadClassByEntityName(entityName: string) {
   return entityKlass;
 }
 
-export function useTransformerTo(klass: Type<CudrBaseEntity>, object: any) {
+export function useTransformerTo(klass: Type<CudrBaseEntity<any>>, object: any) {
   if (object === undefined || object === null) { return }
   if (object instanceof Array) {
     object.forEach((o) => useTransformerTo(klass, o));
@@ -81,7 +81,7 @@ export function useTransformerTo(klass: Type<CudrBaseEntity>, object: any) {
     map.forEach((fun, key) => { if (key in object) { object[key] = fun(object[key]) } });
   }
 }
-export function useTransformerFrom(klass: Type<CudrBaseEntity>, object: any) {
+export function useTransformerFrom(klass: Type<CudrBaseEntity<any>>, object: any) {
   if (object instanceof Array) {
     object.forEach((o) => useTransformerFrom(klass, o));
   } else {

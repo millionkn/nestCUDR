@@ -5,10 +5,10 @@ import { CudrBaseEntity, loadTransformerFrom } from './CudrBase.entity';
 import { ID } from 'src/utils';
 
 
-export type WhereOption<T extends CudrBaseEntity> = {
+export type WhereOption<T extends CudrBaseEntity<any>> = {
   [key in Extract<keyof T, string>]?
-  : T[key] extends ID ? { ''?: { type: 'in', value: string[] } }
-  : T[key] extends CudrBaseEntity ? WhereOption<T[key]> & { ''?: ({ type: 'nullable', value: boolean } | { type: 'isNull', value: boolean }) }
+  : T[key] extends ID<any> ? { ''?: { type: 'in', value: string[] } }
+  : T[key] extends CudrBaseEntity<any> ? WhereOption<T[key]> & { ''?: ({ type: 'nullable', value: boolean } | { type: 'isNull', value: boolean }) }
   : T[key] extends string ? { ''?: { sortIndex?: number } & ({ type: 'like', value: string } | { type: 'equal', value: string }) }
   : T[key] extends number ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: number, moreOrEqual: number }) }
   : T[key] extends Date ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: string, moreOrEqual: string }) }
@@ -55,7 +55,7 @@ function* resolveObjectEmptyKey(
     index += 1;
   }
 }
-function resolveJoinSelect<T extends CudrBaseEntity>(
+function resolveJoinSelect<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
   where: any,
   alias: string,
@@ -69,7 +69,7 @@ function resolveJoinSelect<T extends CudrBaseEntity>(
     }
   })
 }
-function resolveOrder<T extends CudrBaseEntity>(
+function resolveOrder<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
   where: any,
   alias: string,
@@ -88,7 +88,7 @@ function resolveOrder<T extends CudrBaseEntity>(
   })
   orderArr.sort((a, b) => Math.abs(a.index) - Math.abs(b.index)).forEach((x) => out.qb.addOrderBy(`${x.str}`, x.index >= 0 ? 'ASC' : 'DESC'));
 }
-function resolveWhere<T extends CudrBaseEntity>(
+function resolveWhere<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
   where: any,
   alias: string,
@@ -180,7 +180,7 @@ function resolveWhere<T extends CudrBaseEntity>(
 
 @Injectable()
 export class JsonQueryService {
-  queryWhere<T extends CudrBaseEntity, R>(
+  queryWhere<T extends CudrBaseEntity<any>, R>(
     klass: Type<T>,
     body: {
       where: WhereOption<T>,

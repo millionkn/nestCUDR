@@ -13,19 +13,19 @@ type DeleteMission = {
   object: any;
 }
 type ChainPointInfo<T> = {
-  otherSide: (obj: T) => CudrBaseEntity,
+  otherSide: (obj: T) => CudrBaseEntity<any>,
   klassFun: () => Type<T>,
   key: string,
 };
-export function loadChainPoint<T extends CudrBaseEntity>(prototype: T): ChainPointInfo<CudrBaseEntity>[] {
+export function loadChainPoint<T extends CudrBaseEntity<any>>(prototype: T): ChainPointInfo<CudrBaseEntity<any>>[] {
   if (!Reflect.hasMetadata(ChainPoint, prototype)) {
     Reflect.defineMetadata(ChainPoint, [], prototype);
   }
   return Reflect.getMetadata(ChainPoint, prototype);
 }
-export function ChainPoint<T extends CudrBaseEntity>(
+export function ChainPoint<T extends CudrBaseEntity<any>>(
   type: () => Type<T>,
-  otherSide: (obj: T) => CudrBaseEntity,
+  otherSide: (obj: T) => CudrBaseEntity<any>,
 ) {
   return (prototype: any, key: string) => {
     loadChainPoint(prototype).push({
@@ -48,8 +48,8 @@ export class MissionListController {
     })
   }
 
-  private async saveChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity>) {
-    let id: ID;
+  private async saveChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity<any>>) {
+    let id: ID<any>;
     const chainInfo = loadChainPoint(klass.prototype);
     const { privateColumns } = loadCudrMetadata(klass);
     if (Object.keys(target).find((key) => privateColumns.includes(key))) {
@@ -71,7 +71,7 @@ export class MissionListController {
       if (value instanceof Array) {
         const otherSideKey = loadKeyOfTypeFun(info.otherSide);
         const savedArr = await manager.find(info.klassFun(), { where: { [otherSideKey]: id } })
-        const updateIds: ID[] = value.map((o) => o.id);
+        const updateIds: ID<any>[] = value.map((o) => o.id);
         const deleteObjects = savedArr.filter((saved) => !updateIds.includes(saved.id))
         for await (const deleteObj of deleteObjects) {
           await this.deleteChain(manager, deleteObj, info.klassFun());
@@ -93,7 +93,7 @@ export class MissionListController {
     })
   }
 
-  private async deleteChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity>) {
+  private async deleteChain(manager: EntityManager, target: any, klass: Type<CudrBaseEntity<any>>) {
     const chainInfo = loadChainPoint(klass.prototype);
     const { privateColumns } = loadCudrMetadata(klass);
     if (Object.keys(target).find((key) => privateColumns.includes(key))) {
