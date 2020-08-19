@@ -7,7 +7,7 @@ import { ID } from 'src/utils';
 
 export type WhereOption<T extends CudrBaseEntity<any>> = {
   [key in Extract<keyof T, string>]?
-  : T[key] extends ID<any> ? { ''?: { type: 'in', value: string[] } }
+  : T[key] extends ID<any> ? { ''?: { type: 'in', value: T['id'][] } }
   : T[key] extends CudrBaseEntity<any> ? WhereOption<T[key]> & { ''?: ({ type: 'nullable', value: boolean } | { type: 'isNull', value: boolean }) }
   : T[key] extends string ? { ''?: { sortIndex?: number } & ({ type: 'like', value: string } | { type: 'equal', value: string }) }
   : T[key] extends number ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: number, moreOrEqual: number }) }
