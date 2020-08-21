@@ -1,3 +1,5 @@
+import { prototype } from "module";
+
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any, retFun: (a: T) => K): K[];
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any): T[];
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any, retFun?: (a: T) => K) {
@@ -45,5 +47,13 @@ export function oneTimeFunc<T>(func: () => T): () => T {
   return () => {
     if (result === oneTimeSymbol) { result = func() }
     return result;
+  }
+}
+
+// 用于类型推断，如果需要对一个变量写很长的类型声明并且变量不会改变时使用
+export function OneTimeFunc(): MethodDecorator {
+  return (prototype: any, key) => {
+    const fun = prototype[key];
+    prototype[key] = oneTimeFunc(fun);
   }
 }
