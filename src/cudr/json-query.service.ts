@@ -2,7 +2,7 @@ import { Injectable, Type, ForbiddenException } from '@nestjs/common';
 import { loadCudrMetadata } from './cudr.module';
 import { SelectQueryBuilder, WhereExpression, Brackets, getRepository } from 'typeorm';
 import { CudrBaseEntity, loadTransformerFrom } from './CudrBase.entity';
-import { ID } from 'src/utils';
+import { ID, loadKeyOfTypeFun } from 'src/utils';
 
 
 export type WhereOption<T extends CudrBaseEntity<any>> = {
@@ -87,6 +87,7 @@ function resolveOrder<T extends CudrBaseEntity<any>>(
     });
   })
   orderArr.sort((a, b) => Math.abs(a.index) - Math.abs(b.index)).forEach((x) => out.qb.addOrderBy(`${x.str}`, x.index >= 0 ? 'ASC' : 'DESC'));
+  out.qb.addOrderBy(loadKeyOfTypeFun((obj: CudrBaseEntity<any>) => obj.createDate), 'DESC');
 }
 function resolveWhere<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
