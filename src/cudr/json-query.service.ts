@@ -87,7 +87,7 @@ function resolveOrder<T extends CudrBaseEntity<any>>(
     });
   })
   orderArr.sort((a, b) => Math.abs(a.index) - Math.abs(b.index)).forEach((x) => out.qb.addOrderBy(`${x.str}`, x.index >= 0 ? 'ASC' : 'DESC'));
-  out.qb.addOrderBy(loadKeyOfTypeFun((obj: CudrBaseEntity<any>) => obj.createDate), 'DESC');
+  out.qb.addOrderBy(`${alias}.${loadKeyOfTypeFun((obj: CudrBaseEntity<any>) => obj.createDate)}`, 'DESC');
 }
 function resolveWhere<T extends CudrBaseEntity<any>>(
   klass: Type<T>,

@@ -13,12 +13,12 @@ export function AuthGateway() {
         const token = await SocketMapSession.createToken(client)
         await new Promise((res) => client.emit('auth', token, res));
         const handler = super.handleConnection || function () { };
-        return await handler(client);
+        return await handler.call(this, client);
       }
       async handleDisconnect(client: Socket) {
         const handler = super.handleDisconnect || function () { };
         try {
-          return await handler(client);
+          return await handler.call(this, client);
         } catch (e) {
           throw e
         } finally {
