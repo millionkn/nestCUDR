@@ -35,10 +35,17 @@ export async function logout(session: Express.Session) {
     throw err
   });
 }
-export async function toUserEntity(account: { id: ID<'AccountEntity'> }) {
-  for await (const type of userType) {
-    const target = await getRepository(type).findOne({ account });
-    if (target) { return target }
+const userEntityCache = new Map<AccountEntity['id'], CudrBaseEntity<any>>()
+export async function toUserEntity(account: { id: AccountEntity['id'] }) {
+  let cache = userEntityCache.get(account.id);
+  if (!cache) {
+    for await (const type of userType) {
+      const target = await getRepository(type).findOne({ account });
+      if (target) {
+        userEntityCache.set(account.id,target)
+        cache = target;
+      }
+    }
   }
-  return null;
+  return cache || null;
 }
