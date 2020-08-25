@@ -32,7 +32,7 @@ export async function hasRole(session: Express.SessionData, roleName: string): P
 }
 export async function logout(session: Express.Session) {
   session.destroy((err) => {
-    throw err
+    if (err) { throw err }
   });
 }
 const userEntityCache = new Map<AccountEntity['id'], CudrBaseEntity<any>>()
@@ -42,7 +42,7 @@ export async function toUserEntity(account: { id: AccountEntity['id'] }) {
     for await (const type of userType) {
       const target = await getRepository(type).findOne({ account });
       if (target) {
-        userEntityCache.set(account.id,target)
+        userEntityCache.set(account.id, target)
         cache = target;
       }
     }
