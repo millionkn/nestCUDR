@@ -12,6 +12,7 @@ export type WhereOption<T extends CudrBaseEntity<any>> = {
   : T[key] extends string ? { ''?: { sortIndex?: number } & ({ type: 'like', value: string } | { type: 'equal', value: string }) }
   : T[key] extends number ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: number, moreOrEqual: number }) }
   : T[key] extends Date ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: string, moreOrEqual: string }) }
+  : T[key] extends boolean ? { ''?: ({ type: 'equal', value: boolean } | { type: 'not', value: boolean }) }
   : never
 }
 export class ResolveError extends Error { }
@@ -33,7 +34,7 @@ function* resolveObjectEmptyKey(
     if (key === '') { continue }
     if (privateColumns.includes(key)) { throw new ForbiddenException() }
     const bodyValue = object[key];
-    const subKlass = Reflect.getMetadata('design:type', klass.prototype, key);
+    const subKlass = Reflect.getMetadata('design:typeFun', klass.prototype, key) ? Reflect.getMetadata('design:typeFun', klass.prototype, key)() : Reflect.getMetadata('design:type', klass.prototype, key);
     if (typeof bodyValue !== 'object' || bodyValue === null) {
       throw new ResolveError(`${alias}_${key}:必须为对象 或 未定义键${key}`);
     }
@@ -167,6 +168,19 @@ function resolveWhere<T extends CudrBaseEntity<any>>(
           } else if (klass === String) {
             if (bodyValue.type === 'like') {
               whereArr.push([`${alias}.${key} like :value`, { value: `%${from(bodyValue.value)}%` }])
+              continue
+            }
+          } else if (klass === Boolean) {
+            if (bodyValue.type === 'equal') {
+              whereArr.push([`${alias}.${key} = :value`, { value: from(bodyValue.value) }])
+              continue
+            } else if (bodyValue.type === 'not') {
+              whereArr.push(
+                new Brackets((qw) => qw
+                  .where(`${alias}.${key} is null`)
+                  .orWhere(`${alias}.${key} != :value`, { value: from(bodyValue.value) })
+                )
+              )
               continue
             }
           }
