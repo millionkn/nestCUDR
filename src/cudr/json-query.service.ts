@@ -11,7 +11,7 @@ export type WhereOption<T extends CudrBaseEntity<any>> = {
   : T[key] extends CudrBaseEntity<any> ? WhereOption<T[key]> & { ''?: ({ type: 'nullable', value: boolean } | { type: 'isNull', value: boolean }) }
   : T[key] extends string ? { ''?: { sortIndex?: number } & ({ type: 'like', value: string } | { type: 'equal', value: string }) }
   : T[key] extends number ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: number, moreOrEqual: number }) }
-  : T[key] extends Date ? { ''?: { sortIndex?: number } & ({ type: 'between', lessOrEqual: string, moreOrEqual: string }) }
+  : T[key] extends Date ? { ''?: { sortIndex?: number } & ({ type: 'isNull', value: boolean } | { type: 'between', lessOrEqual: string, moreOrEqual: string }) }
   : T[key] extends boolean ? { ''?: ({ type: 'equal', value: boolean } | { type: 'not', value: boolean }) }
   : never
 }
@@ -131,9 +131,7 @@ function resolveWhere<T extends CudrBaseEntity<any>>(
             }
             continue
           } else if (bodyValue.type === 'isNull') {
-            if (bodyValue.value) {
-              whereArr.push([`${alias}.${key} is null`, {}]);
-            }
+            whereArr.push([`${alias}.${key} is ${bodyValue.value === true ? '' : 'not'} null`, {}]);
             continue;
           }
         } else if (klass === Symbol) {
@@ -153,6 +151,9 @@ function resolveWhere<T extends CudrBaseEntity<any>>(
                 }
               ])
               continue
+            } else if (bodyValue.type === 'isNull') {
+              whereArr.push([`${alias}.${key} is ${bodyValue.value === true ? '' : 'not'} null`, {}]);
+              continue;
             }
           } else if (klass === Number) {
             if (bodyValue.type === 'between') {
