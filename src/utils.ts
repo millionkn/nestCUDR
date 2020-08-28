@@ -1,5 +1,3 @@
-import { prototype } from "module";
-
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any, retFun: (a: T) => K): K[];
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any): T[];
 export function duplicateRemoval<T, K>(arr: T[], fun: (a: T) => any, retFun?: (a: T) => K) {
@@ -37,7 +35,7 @@ export function loadMetadata<T>(metadateKey: any, defaultValue: () => T, target:
   }
 }
 
-const ID = Symbol();
+export const ID = Symbol();
 type IDT<T> = { [ID]: T };
 export type ID<T> = string & IDT<T>
 
@@ -56,4 +54,13 @@ export function OneTimeFunc(): MethodDecorator {
     const fun = prototype[key];
     prototype[key] = oneTimeFunc(fun);
   }
+}
+
+export function hasTypeFun(prototype: any, key: string) {
+  return Reflect.hasMetadata('design:typeFun', prototype, key);
+}
+export function loadType(prototype: any, key: string) {
+  const typeFun = Reflect.getMetadata('design:typeFun', prototype, key);
+  if (typeFun) { return typeFun() }
+  return Reflect.getMetadata('design:type', prototype, key);
 }

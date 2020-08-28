@@ -1,7 +1,6 @@
 import { Module, DynamicModule, CanActivate, Type } from '@nestjs/common';
 import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
-import { JsonQueryService } from './json-query.service';
 import { CudrBaseEntity, loadTransformerTo } from './CudrBase.entity';
 import { createCudrController } from './createCudrController';
 import { loadMetadata } from 'src/utils';
@@ -81,27 +80,7 @@ export function useTransformerTo(klass: Type<CudrBaseEntity<any>>, object: any) 
     map.forEach((fun, key) => { if (key in object) { object[key] = fun(object[key]) } });
   }
 }
-export function useTransformerFrom(klass: Type<CudrBaseEntity<any>>, object: any) {
-  if (object instanceof Array) {
-    object.forEach((o) => useTransformerFrom(klass, o));
-  } else {
-    const map = loadTransformerTo(klass.prototype);
-    for (const key in object) {
-      if (object.hasOwnProperty(key)) {
-        const type = Reflect.getMetadata('design:type', klass.prototype);
-        if (type && type.prototype instanceof CudrBaseEntity) {
-          const value: any = object[key];
-          useTransformerFrom(type, value);
-        }
-      }
-    }
-    map.forEach((fun, key) => { if (key in object) { object[key] = fun(object[key]) } });
-  }
-}
 
-/**
- * 所有的查询都不需要权限
- */
 @Module({
   imports: [
     BlobModule,
@@ -111,15 +90,9 @@ export class CudrModule {
   static factory(): DynamicModule {
     return {
       module: CudrModule,
-      providers: [
-        JsonQueryService,
-      ],
       controllers: [
         MissionListController,
         ...[...savedInfoMap.values()].map((info) => info.controllerClassFun()),
-      ],
-      exports: [
-        JsonQueryService,
       ],
     }
   }

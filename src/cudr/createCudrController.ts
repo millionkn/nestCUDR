@@ -1,21 +1,22 @@
 import { Type, Controller, Post, Body, Inject } from "@nestjs/common";
 import { loadCudrMetadata, useTransformerTo } from "./cudr.module";
-import { WhereOption, JsonQueryService } from "./json-query.service";
 import { CudrBaseEntity } from "./CudrBase.entity";
+import { jsonQuery, QueryOption } from "./jsonQuery/jsonQuery";
+import { getRepository } from "typeorm";
 
 export function createCudrController<T extends CudrBaseEntity<any>>(klass: Type<T>) {
   const { entityName } = loadCudrMetadata(klass)
   @Controller(`cudr/${entityName}`)
   class CudrController {
-    @Inject(JsonQueryService)
-    jsonQuery!: JsonQueryService;
     @Post('findEntityList')
     async findEntityList(@Body() body: {
-      where: WhereOption<T>,
+      where: QueryOption<T>,
       pageIndex?: number,
       pageSize?: number,
     }) {
-      const [selectResult, total] = await this.jsonQuery.queryWhere(klass, body, (qb) => qb.getManyAndCount());
+      const qb = getRepository(klass).createQueryBuilder(`body`);
+      jsonQuery(qb, `body`, klass, body.where);
+      const [selectResult, total] = await qb.getManyAndCount();
       useTransformerTo(klass, selectResult);
       return {
         data: selectResult,

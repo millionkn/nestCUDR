@@ -27,6 +27,9 @@ export function GlobalRepository(): ClassDecorator {
       database: 'background',
       synchronize: true,
       autoLoadEntities: true,
+      logging: [
+        'query',
+      ]
     }),
   ],
 })
