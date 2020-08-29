@@ -32,33 +32,30 @@ function buildQuery<T extends CudrBaseEntity<any>>(
     if (subKlass === undefined) { return }
     const meta = subBody[''];
     if (subKlass.prototype instanceof CudrBaseEntity) {
-      if (meta && meta.isNull === true) {
-        whereFun((we) => we.andWhere(`${alias}.${key} is null`));
-      } else if (meta && meta.isNull === false) {
-        const otherSide = isOneToLastOne(klass.prototype, key);
-        if (otherSide === null) {
-          qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
-          whereFun((we) => {
-            we.andWhere(`${alias}.${key} is not null`);
-            buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => cb(we), qb, sortIndexArray);
-          });
-        } else {
-          qb.leftJoinAndMapOne(`${alias}.${otherSide}`, (qb) => {
-            const other = qb.subQuery()
-              .from(subKlass, `other`)
-              .leftJoin((qb) => qb.subQuery()
-                .from(subKlass, `temp`)
-                .groupBy(`temp.${otherSide}`)
-                .select(`max(temp.createDate)`, `lastdate`)
-                .addSelect(`temp.${otherSide}`, `otherId`)
-                , `temp`, `temp.otherId = other.id`)
-              .having(`temp.lastdate = other.createDate`)
-            jsonQuery<any>(other, `other`, subKlass, subBody);
-            return other;
-          }, `${alias}_${index}`)
-        }
-      } else {
+      let metaTarget: string;
+      const otherSide = isOneToLastOne(klass.prototype, key);
+      if (otherSide === null) {
+        metaTarget = `${alias}.${key}`;
         qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
+      } else {
+        metaTarget = `${alias}_${index}.${otherSide}`;
+        qb.leftJoin((qb) => {
+          return qb.subQuery()
+            .from(subKlass, `temp_table`)
+            .groupBy(`temp_table.${otherSide}`)
+            .select(`temp_table.${otherSide}`, `otherSideId`)
+            .addSelect(`max(temp_table.createDate)`, `createDate`)
+        }, `${alias}_${index}_temp`, `${alias}.id=${alias}_${index}_temp.otherSideId`)
+          .leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`, `${alias}_${index}.createDate = ${alias}_${index}_temp.createDate and ${alias}_${index}.${otherSide} = ${alias}_${index}_temp.otherSideId`);
+      }
+      if (meta && meta.isNull === true) {
+        whereFun((we) => we.andWhere(`${metaTarget} is null`));
+      } else if (meta && meta.isNull === false) {
+        whereFun((we) => {
+          we.andWhere(`${metaTarget} is not null`);
+          buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => cb(we), qb, sortIndexArray);
+        });
+      } else {
         const whereArr = new Array<(qb: WhereExpression) => void>();
         buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => whereArr.push(cb), qb, sortIndexArray);
         if (whereArr.length !== 0) {
@@ -67,7 +64,7 @@ function buildQuery<T extends CudrBaseEntity<any>>(
               swe.where(new Brackets((swe2) => {
                 whereArr.forEach((w) => w(swe2));
               }));
-              swe.orWhere(`${alias}.${key} is null`);
+              swe.orWhere(`${metaTarget} is null`);
             }))
           });
         }
@@ -95,8 +92,8 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       } else if (subKlass === Date) {
         if (typeof meta.between === 'object' && meta.between !== null) {
           if (typeof meta.between.lessOrEqual === 'string' && typeof meta.between.moreOrEqual === 'string') {
-            const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').toDate();
-            const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').toDate();
+            const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
+            const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
             if (meta.nullable === true) {
               whereFun((qb) => qb.andWhere(new Brackets((w) => w.where(`${alias}.${key} between :more and :less`, { less, more }).orWhere(`${alias}.${key} is null`))));
             } else {
@@ -109,12 +106,12 @@ function buildQuery<T extends CudrBaseEntity<any>>(
           }
         }
       }
-    }
-    if (typeof meta.sortIndex === 'number') {
-      sortIndexArray.push({
-        index: meta.sortIndex,
-        by: `${alias}.${key}`,
-      })
+      if (typeof meta.sortIndex === 'number') {
+        sortIndexArray.push({
+          index: meta.sortIndex,
+          by: `${alias}.${key}`,
+        })
+      }
     }
   });
 }

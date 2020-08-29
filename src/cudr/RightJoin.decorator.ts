@@ -15,7 +15,7 @@ export function OneToLastOne<T extends CudrBaseEntity<any>>(
 ) {
   return (prototype: any, key: string) => {
     Reflect.defineMetadata(`design:typeFun`, klassFun, prototype, key);
-    OneToOne(klassFun)(prototype, key);
+    OneToOne(klassFun, otherSide)(prototype, key);
     Reflect.defineMetadata(OneToLastOne, otherSide, prototype, key);
   }
 }

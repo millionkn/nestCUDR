@@ -23,22 +23,20 @@ export class UserEntity extends CudrBaseEntity<'UserEntity'> {
 @GlobalRepository()
 @CudrEntity({
 })
-export class TestEntity extends CudrBaseEntity<'TestEntity'> {
-  @Column()
-  name!: string
+export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity'> {
   @ManyToOne(() => UserEntity)
   user!: UserEntity
-  @OneToLastOne(() => Test2Entity, (obj) => obj.test)
-  test2!: any
+  @OneToLastOne(() => RequirementLogEntity, (obj) => obj.requirement)
+  lastLog!: InstanceType<typeof RequirementLogEntity>
 }
 
 @Entity()
 @GlobalRepository()
 @CudrEntity({
 })
-export class Test2Entity extends CudrBaseEntity<'Test2Entity'> {
+export class RequirementLogEntity extends CudrBaseEntity<'RequirementLogEntity'> {
   @Column()
   name!: string
-  @ManyToOne(() => TestEntity)
-  test!: TestEntity;
+  @ManyToOne(() => UserRequirementEntity)
+  requirement!: UserRequirementEntity;
 }
