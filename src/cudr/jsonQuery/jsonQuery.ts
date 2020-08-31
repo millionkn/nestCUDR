@@ -11,7 +11,7 @@ export type QueryOption<T extends CudrBaseEntity<any>> = {
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key]> & { ''?: { isNull?: boolean } }
   : T[key] extends string ? { ''?: { sortIndex?: number, like?: string, equal?: string } }
   : T[key] extends number ? { ''?: { sortIndex?: number, between?: { lessOrEqual: number, moreOrEqual: number } } }
-  : T[key] extends Date ? { ''?: { sortIndex?: number, nullable?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
+  : T[key] extends Date ? { ''?: { sortIndex?: number, isNull?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
   : T[key] extends boolean ? { ''?: { equal: boolean } }
   : never
 }
@@ -90,19 +90,17 @@ function buildQuery<T extends CudrBaseEntity<any>>(
           }
         }
       } else if (subKlass === Date) {
-        if (typeof meta.between === 'object' && meta.between !== null) {
+        if (meta.isNull === true) {
+          whereFun((qb) => qb.andWhere(`${alias}.${key} is null`));
+        } else {
           if (typeof meta.between.lessOrEqual === 'string' && typeof meta.between.moreOrEqual === 'string') {
             const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
             const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
-            if (meta.nullable === true) {
-              whereFun((qb) => qb.andWhere(new Brackets((w) => w.where(`${alias}.${key} between :more and :less`, { less, more }).orWhere(`${alias}.${key} is null`))));
-            } else {
+            if (meta.isNull === false) {
               whereFun((qb) => qb.andWhere(`${alias}.${key} between :more and :less`, { less, more }));
+            } else {
+              whereFun((qb) => qb.andWhere(`(${alias}.${key} is null or (${alias}.${key} between :more and :less))`, { less, more }))
             }
-          }
-        } else {
-          if (meta.nullable === false) {
-            whereFun((qb) => qb.andWhere(`${alias}.${key} is not null`));
           }
         }
       }
