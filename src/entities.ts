@@ -1,4 +1,4 @@
-import { Entity, Column, OneToOne, JoinColumn, ManyToOne } from "typeorm"
+import { Entity, Column, OneToOne, JoinColumn, ManyToOne, OneToMany } from "typeorm"
 import { CudrEntity, PrivateColumn } from "./cudr/cudr.module"
 import { GlobalRepository } from "./repository/repository.module"
 import { AccountEntity } from "./auth/authEntities"
@@ -17,6 +17,8 @@ export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @OneToOne(() => AccountEntity)
   @JoinColumn()
   account!: AccountEntity
+  @OneToMany(() => UserRequirementEntity, (req) => req.user)
+  requirements!: UserRequirementEntity[];
 }
 
 @Entity()

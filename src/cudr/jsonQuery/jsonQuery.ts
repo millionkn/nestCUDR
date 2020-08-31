@@ -1,7 +1,7 @@
 import { CudrBaseEntity } from "../CudrBase.entity";
 import { ID, loadType } from "src/utils";
 import { Type } from "@nestjs/common";
-import { Brackets, SelectQueryBuilder, WhereExpression } from "typeorm";
+import { Brackets, SelectQueryBuilder, WhereExpression, getMetadataArgsStorage } from "typeorm";
 import * as moment from 'moment';
 import { isOneToLastOne } from "../RightJoin.decorator";
 
@@ -9,6 +9,7 @@ export type QueryOption<T extends CudrBaseEntity<any>> = {
   [key in Extract<keyof T, string>]?
   : T[key] extends ID<any> ? { ''?: { in?: T['id'][] } }
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key]> & { ''?: { isNull?: boolean } }
+  : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X> : never
   : T[key] extends string ? { ''?: { sortIndex?: number, like?: string, equal?: string } }
   : T[key] extends number ? { ''?: { sortIndex?: number, between?: { lessOrEqual: number, moreOrEqual: number } } }
   : T[key] extends Date ? { ''?: { sortIndex?: number, isNull?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
@@ -67,6 +68,17 @@ function buildQuery<T extends CudrBaseEntity<any>>(
               swe.orWhere(`${metaTarget} is null`);
             }))
           });
+        }
+      }
+    } else if (subKlass === Array) {
+      const arg = getMetadataArgsStorage().filterRelations(klass).find((arg) => arg.propertyName === key);
+      if (arg !== undefined) {
+        if (typeof arg.type === 'function') {
+          const subType = arg.type();
+          if (subType.prototype instanceof CudrBaseEntity) {
+            qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
+            buildQuery(subType, subBody, `${alias}_${index}`, whereFun, qb, sortIndexArray);
+          }
         }
       }
     } else {
