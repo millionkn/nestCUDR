@@ -64,3 +64,8 @@ export function loadType(prototype: any, key: string) {
   if (typeFun) { return typeFun() }
   return Reflect.getMetadata('design:type', prototype, key);
 }
+export function TypeFun(typeFun: () => any) {
+  return (prototype: any, key: string) => {
+    Reflect.metadata('design:typeFun', typeFun)(prototype, key);
+  }
+}

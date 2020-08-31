@@ -1,11 +1,11 @@
 import * as moment from "moment";
 import { CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { ID } from "src/utils";
+import { ID, TypeFun } from "src/utils";
 
 @Entity()
 export class CudrBaseEntity<T> {
   @PrimaryGeneratedColumn('uuid')
-  @Reflect.metadata('design:typeFun', () => ID)
+  @TypeFun(() => ID)
   @Reflect.metadata('design:type', String)
   id!: ID<T>;
   @TransformerTo((date: Date) => moment(date).format('YYYY-MM-DD HH:mm:ss'))
