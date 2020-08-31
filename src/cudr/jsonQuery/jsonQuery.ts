@@ -93,13 +93,17 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         if (meta.isNull === true) {
           whereFun((qb) => qb.andWhere(`${alias}.${key} is null`));
         } else {
-          if (typeof meta.between.lessOrEqual === 'string' && typeof meta.between.moreOrEqual === 'string') {
+          if (meta.between && typeof meta.between.lessOrEqual === 'string' && typeof meta.between.moreOrEqual === 'string') {
             const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
             const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
             if (meta.isNull === false) {
               whereFun((qb) => qb.andWhere(`${alias}.${key} between :more and :less`, { less, more }));
             } else {
               whereFun((qb) => qb.andWhere(`(${alias}.${key} is null or (${alias}.${key} between :more and :less))`, { less, more }))
+            }
+          } else {
+            if (meta.isNull === false) {
+              whereFun((qb) => qb.andWhere(`${alias}.${key} is not null`));
             }
           }
         }
