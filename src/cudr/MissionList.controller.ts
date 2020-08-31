@@ -3,6 +3,7 @@ import { getConnection, getMetadataArgsStorage } from "typeorm";
 import { loadClassByEntityName } from "./cudr.module";
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { ID, loadType } from "src/utils";
+import { CudrEventSubject } from "./transactionEvent";
 
 type SaveMission = {
   type: 'save',
@@ -18,10 +19,12 @@ type DeleteMission = {
 export class MissionListController {
   @Post('transaction')
   async transaction(@Body() missionList: Array<SaveMission | DeleteMission>) {
+    const eventFun = new Array<() => void>();
     await getConnection().transaction(async (manager) => {
       const stack = new Map<Type<CudrBaseEntity<any>>, ID<any>>();
       for await (const mission of missionList) {
         const klass = loadClassByEntityName(mission.entityName);
+        const eventSubject = CudrEventSubject(klass);
         if (mission.type === 'save') {
           getMetadataArgsStorage()
             .filterRelations(klass)
@@ -44,13 +47,27 @@ export class MissionListController {
             });
           const result = await manager.save(klass, mission.entity);
           stack.set(klass, result.id);
+          if (mission.entity.id === undefined) {
+            eventFun.push(() => eventSubject.next({
+              type: 'insert',
+              entity: result,
+            }));
+          }
         } else if (mission.type === 'delete') {
+          const result = await manager.findByIds(klass, mission.ids, { loadRelationIds: true });
           await manager.delete(klass, mission.ids);
+          result.forEach((entity) => {
+            eventFun.push(() => eventSubject.next({
+              type: 'delete',
+              entity
+            }));
+          });
         } else {
           // @ts-ignore
           throw new BadRequestException(`未知任务类型:${mission.type}`)
         }
       }
-    })
+    });
+    eventFun.forEach((fun)=>fun());
   }
 }
