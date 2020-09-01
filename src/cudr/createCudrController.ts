@@ -16,6 +16,17 @@ export function createCudrController<T extends CudrBaseEntity<any>>(klass: Type<
     }) {
       const qb = getRepository(klass).createQueryBuilder(`body`);
       jsonQuery(qb, `body`, klass, body.where);
+      if (undefined !== body.pageIndex) {
+        if (body.pageSize === undefined) {
+          qb.skip((body.pageIndex - 1) * 15);
+          qb.take(15);
+        } else {
+          qb.skip((body.pageIndex - 1) * body.pageSize);
+          qb.take(body.pageSize);
+        }
+      } else if (undefined !== body.pageSize) {
+        qb.take(body.pageSize);
+      }
       const [selectResult, total] = await qb.getManyAndCount();
       useTransformerTo(klass, selectResult);
       return {
