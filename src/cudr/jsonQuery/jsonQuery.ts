@@ -79,7 +79,7 @@ function buildQuery<T extends CudrBaseEntity<any>>(
             qb.leftJoin((q) => {
               const qb = q.subQuery().from(subType, `temp_table`);
               buildQuery(subType, subBody, `temp_table`, (cb) => cb(qb), qb, sortIndexArray);
-              const otherSide = typeof arg.inverseSideProperty === 'function'?loadKeyOfTypeFun(arg.inverseSideProperty):arg.inverseSideProperty
+              const otherSide = typeof arg.inverseSideProperty === 'function' ? loadKeyOfTypeFun(arg.inverseSideProperty) : arg.inverseSideProperty
               return qb
                 .select(`temp_table.id`, `id`)
                 .addSelect(`temp_table.${otherSide}`, `otherSideId`);
