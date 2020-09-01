@@ -1,5 +1,5 @@
 import { CudrBaseEntity } from "../CudrBase.entity";
-import { ID, loadType } from "src/utils";
+import { ID, loadType, loadKeyOfTypeFun } from "src/utils";
 import { Type } from "@nestjs/common";
 import { Brackets, SelectQueryBuilder, WhereExpression, getMetadataArgsStorage } from "typeorm";
 import * as moment from 'moment';
@@ -76,8 +76,15 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         if (typeof arg.type === 'function') {
           const subType = arg.type();
           if (subType.prototype instanceof CudrBaseEntity) {
-            qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
-            buildQuery(subType, subBody, `${alias}_${index}`, whereFun, qb, sortIndexArray);
+            qb.leftJoin((q) => {
+              const qb = q.subQuery().from(subType, `temp_table`);
+              buildQuery(subType, subBody, `temp_table`, (cb) => cb(qb), qb, sortIndexArray);
+              const otherSide = typeof arg.inverseSideProperty === 'function' ? loadKeyOfTypeFun(arg.inverseSideProperty) : arg.inverseSideProperty
+              return qb
+                .select(`temp_table.id`, `id`)
+                .addSelect(`temp_table.${otherSide}`, `otherSideId`);
+            }, `${alias}_${index}_temp`, `${alias}_${index}_temp.otherSideId = ${alias}.id`)
+            qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`, `${alias}_${index}.id = ${alias}_${index}_temp.id`);
           }
         }
       }
