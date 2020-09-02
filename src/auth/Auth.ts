@@ -14,11 +14,16 @@ export function UserType() {
   }
 }
 
-export async function login(session: Express.SessionData, { username, password }: any): Promise<ID<'AccountEntity'> | null> {
+export async function login(session: Express.SessionData, { username, password }: any): Promise<ID<any> | null> {
   let target = await accountRepository().findOne({ username, password });
   if (!target) { return null }
-  session.savedUser = target;
-  return target.id;
+  const user = await toUserEntity(target);
+  if (user === null) {
+    return null;
+  } else {
+    session.savedUser = target;
+    return user.id;
+  }
 }
 
 export async function account(session: Express.SessionData): Promise<AccountEntity | null> {
