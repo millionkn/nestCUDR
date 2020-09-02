@@ -1,10 +1,9 @@
 import { PrimaryGeneratedColumn, Entity, Column, ManyToMany, JoinTable } from "typeorm";
 import { ID } from "src/utils";
+import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
 
 @Entity()
-export class AccountEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: ID<'AccountEntity'>;
+export class AccountEntity extends CudrBaseEntity<'AccountEntity'> {
   @Column()
   username!: string;
   @Column({ select: false })
