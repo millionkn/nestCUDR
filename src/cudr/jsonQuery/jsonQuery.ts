@@ -91,22 +91,26 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       }
     } else {
       if (typeof meta !== 'object' || meta === null) { return }
+      const valueKey = `${alias}_${index}_value`;
       if (subKlass === ID) {
         if (meta.in instanceof Array) {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...value)`, { value: meta.in }));
+          whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
         }
       } else if (subKlass === Boolean) {
         if (typeof meta.equal === 'boolean') {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} = :value`, { value: meta.equal }));
+          whereFun((qb) => qb.andWhere(`${alias}.${key} = :${valueKey}`, { [valueKey]: meta.equal }));
         }
       } else if (subKlass === String) {
         if (typeof meta.like === 'string') {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} like :value`, { value: `%${meta.like}%` }));
+          whereFun((qb) => qb.andWhere(`${alias}.${key} like :${valueKey}`, { [valueKey]: `%${meta.like}%` }));
         }
       } else if (subKlass === Number) {
         if (typeof meta.between === 'object' && meta.between !== null) {
           if (typeof meta.between.lessOrEqual === 'number' && typeof meta.between.moreOrEqual === 'number') {
-            whereFun((qb) => qb.andWhere(`${alias}.${key} between :moreOrEqual and :lessOrEqual`, meta.between));
+            whereFun((qb) => qb.andWhere(`${alias}.${key} between :${valueKey}_more and :${valueKey}_less`, {
+              [`${valueKey}_more`]: meta.between.moreOrEqual,
+              [`${valueKey}_less`]: meta.between.lessOrEqual,
+            }));
           }
         }
       } else if (subKlass === Date) {
@@ -117,9 +121,15 @@ function buildQuery<T extends CudrBaseEntity<any>>(
             const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
             const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
             if (meta.isNull === false) {
-              whereFun((qb) => qb.andWhere(`${alias}.${key} between :more and :less`, { less, more }));
+              whereFun((qb) => qb.andWhere(`${alias}.${key} between :${valueKey}_more and :${valueKey}_less`, {
+                [`${valueKey}_more`]: more,
+                [`${valueKey}_less`]: less,
+              }));
             } else {
-              whereFun((qb) => qb.andWhere(`(${alias}.${key} is null or (${alias}.${key} between :more and :less))`, { less, more }))
+              whereFun((qb) => qb.andWhere(`(${alias}.${key} is null or (${alias}.${key} between :${valueKey}_more and :${valueKey}_less))`, {
+                [`${valueKey}_more`]: more,
+                [`${valueKey}_less`]: less,
+              }))
             }
           } else {
             if (meta.isNull === false) {
