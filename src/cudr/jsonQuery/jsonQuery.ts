@@ -76,16 +76,21 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         if (typeof arg.type === 'function') {
           const subType = arg.type();
           if (subType.prototype instanceof CudrBaseEntity) {
-            qb.leftJoin((q) => {
-              const qb: SelectQueryBuilder<any> = q.subQuery().from(subType, `temp_table`);
-              jsonQuery(qb, `temp_table`, subType, subBody);
-              const otherSide = typeof arg.inverseSideProperty === 'function' ? loadKeyOfTypeFun(arg.inverseSideProperty) : arg.inverseSideProperty
-              return qb
-                .select(`temp_table.id`, `id`)
-                .addSelect(`temp_table.${otherSide}`, `otherSideId`);
-            }, `${alias}_${index}_temp`, `${alias}_${index}_temp.otherSideId = ${alias}.id`)
-            qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`, `${alias}_${index}.id = ${alias}_${index}_temp.id`);
-            buildQuery(subType, subBody, `${alias}_${index}`, () => { }, qb, []);
+            if (arg.relationType === 'one-to-many') {
+              qb.leftJoin((q) => {
+                const qb: SelectQueryBuilder<any> = q.subQuery().from(subType, `temp_table`);
+                jsonQuery(qb, `temp_table`, subType, subBody);
+                const otherSide = typeof arg.inverseSideProperty === 'function' ? loadKeyOfTypeFun(arg.inverseSideProperty) : arg.inverseSideProperty
+                return qb
+                  .select(`temp_table.id`, `id`)
+                  .addSelect(`temp_table.${otherSide}`, `otherSideId`);
+              }, `${alias}_${index}_temp`, `${alias}_${index}_temp.otherSideId = ${alias}.id`)
+              qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`, `${alias}_${index}.id = ${alias}_${index}_temp.id`);
+              buildQuery(subType, subBody, `${alias}_${index}`, () => { }, qb, []);
+            } else if (arg.relationType === 'many-to-many') {
+              qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
+              buildQuery(subType, subBody, `${alias}_${index}`, whereFun, qb, []);
+            }
           }
         }
       }
