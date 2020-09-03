@@ -3,7 +3,7 @@ import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
 import { CudrBaseEntity, loadTransformerTo } from './CudrBase.entity';
 import { createCudrController } from './createCudrController';
-import { loadMetadata } from 'src/utils';
+import { loadMetadata, loadType } from 'src/utils';
 
 type CudrOpt = {
   /**
@@ -70,7 +70,7 @@ export function useTransformerTo(klass: Type<CudrBaseEntity<any>>, object: any) 
     const map = loadTransformerTo(klass.prototype);
     for (const key in object) {
       if (object.hasOwnProperty(key)) {
-        const type = Reflect.getMetadata('design:type', klass.prototype);
+        const type = loadType(klass.prototype,key);
         if (type && type.prototype instanceof CudrBaseEntity) {
           const value: any = object[key];
           useTransformerTo(type, value);
