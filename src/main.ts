@@ -6,6 +6,7 @@ import { getConnection } from 'typeorm';
 import * as cors from 'cors';
 import * as express from 'express';
 import { sessionStore } from './sessionStore';
+import { NotFoundFilter } from './not-found.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -22,6 +23,7 @@ async function bootstrap() {
   }))
   app.use(cors())
   app.use(express.static('static'))
+  app.useGlobalFilters(new NotFoundFilter());
   await app.listen(3000);
 }
 bootstrap();
