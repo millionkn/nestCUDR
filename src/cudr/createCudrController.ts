@@ -27,6 +27,7 @@ export function createCudrController<T extends CudrBaseEntity<any>>(klass: Type<
       } else if (undefined !== body.pageSize) {
         qb.take(body.pageSize);
       }
+      qb.addOrderBy(`body.createDate`, 'DESC');
       const [selectResult, total] = await qb.getManyAndCount();
       useTransformerTo(klass, selectResult);
       return {
