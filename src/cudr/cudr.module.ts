@@ -17,10 +17,12 @@ function transformerTo<T extends CudrBaseEntity>(klass: Type<T>, entities: Array
       if (isDecorated(DeepQuery, klass, key)) {
         const data = loadDecoratorData(DeepQuery, klass, key)();
         transformerTo(data.subKlass, entity[key]);
-      } else {
-        const type = isDecorated(QueryTag, klass, key) ? loadDecoratorData(QueryTag, klass, key).type() : Reflect.getMetadata('design:type', klass.prototype, key);
+      } else if (isDecorated(QueryTag, klass, key)) {
+        const type = loadDecoratorData(QueryTag, klass, key).type();
         if (type === Date) {
           entity[key] = moment(entity[key]).format('YYYY-MM-DD HH:mm:ss');
+        }else if(type === Number){
+          entity[key] = Number.parseFloat(entity[key]);
         }
       }
     });

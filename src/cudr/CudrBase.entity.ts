@@ -9,6 +9,9 @@ export class CudrBaseEntity<T = any> implements BaseEntity<T> {
     type: () => ID
   })
   id!: ID<T>;
+  @QueryTag({
+    type: () => Date
+  })
   @CreateDateColumn()
   createDate!: Date
 }
