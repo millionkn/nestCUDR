@@ -1,17 +1,16 @@
 import { SubscribeMessage, WebSocketGateway, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
-import { CurrentUser } from 'src/auth/current-user.decorator';
-import { AuthGateway } from 'src/auth/AuthGateway.decorator';
+import { Inject } from '@nestjs/common';
+import { SocketAuthService } from 'src/auth/socket-auth.service';
 
 @WebSocketGateway()
-@AuthGateway()
-export class BusinessGateway implements OnGatewayConnection,OnGatewayDisconnect {
+export class BusinessGateway {
+  @Inject(SocketAuthService)
+  socketAuthService!: SocketAuthService;
+
   @SubscribeMessage('getUser')
-  async getUser(socket: Socket, payload: any, @CurrentUser() user: any) {
+  async getUser(socket: Socket, payload: any) {
+    const user = await this.socketAuthService.auth(socket);
     return user;
-  }
-  async handleConnection(client: Socket) {
-  }
-  handleDisconnect(client: Socket) {
   }
 }

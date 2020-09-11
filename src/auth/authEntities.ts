@@ -1,6 +1,6 @@
 import { PrimaryGeneratedColumn, Entity, Column, ManyToMany, JoinTable } from "typeorm";
-import { ID } from "src/utils";
 import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
+import { ID } from "src/utils/entity";
 
 @Entity()
 export class AccountEntity extends CudrBaseEntity<'AccountEntity'> {

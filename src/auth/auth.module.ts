@@ -2,6 +2,7 @@ import { Module, DynamicModule } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountEntity, GroupEntity, RoleEntity } from './authEntities';
+import { SocketAuthService } from './socket-auth.service';
 
 @Module({
   imports: [
@@ -11,7 +12,12 @@ import { AccountEntity, GroupEntity, RoleEntity } from './authEntities';
       RoleEntity,
     ])
   ],
-  controllers: [AuthController],
+  controllers: [
+    AuthController,
+  ],
+  providers: [
+    SocketAuthService,
+  ]
 })
 export class AuthModule {
   static factory(): DynamicModule {

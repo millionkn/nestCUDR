@@ -1,10 +1,12 @@
-import { Controller, Post, Body, Session, ForbiddenException, Get, Inject, BadRequestException } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Post, Session, Inject } from '@nestjs/common';
 import * as Auth from './Auth';
 import { CurrentUser } from './current-user.decorator';
-import { SocketMapSession } from '../socket-map-session';
+import { SocketAuthService } from './socket-auth.service';
 
 @Controller('api/auth')
 export class AuthController {
+  @Inject(SocketAuthService)
+  socketAuthService!: SocketAuthService;
   @Post('login')
   async login(@Body() body: any, @Session() session: Express.Session) {
     let userId = await Auth.login(session, body)
@@ -31,10 +33,8 @@ export class AuthController {
     }
     return true;
   }
-
-  @Post('socketAuth')
-  async socketAuth(@CurrentUser() user: any, @Session() session: Express.Session, @Body() body: { token: string }) {
-    const result = await SocketMapSession.bindToken(session, body);
-    if (result === null) { throw new BadRequestException('无效的socketToken') }
+  @Post(`socket`)
+  async socket(@Session() session: Express.Session, @Body() body: { token: number }) {
+    this.socketAuthService.bindSession(session, body);
   }
 }

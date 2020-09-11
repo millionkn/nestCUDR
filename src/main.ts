@@ -1,3 +1,4 @@
+import './utils/index';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as session from 'express-session';
@@ -5,7 +6,6 @@ import * as bodyParser from 'body-parser';
 import { getConnection } from 'typeorm';
 import * as cors from 'cors';
 import * as express from 'express';
-import { sessionStore } from './sessionStore';
 import { NotFoundFilter } from './not-found.filter';
 
 async function bootstrap() {
@@ -18,7 +18,6 @@ async function bootstrap() {
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: false }));
   app.use(session({
-    store: sessionStore,
     secret: 'session-secret'
   }))
   app.use(cors())

@@ -1,18 +1,12 @@
-import { ID, oneTimeFunc } from "src/utils";
 import { getRepository } from "typeorm";
 import { AccountEntity } from "./authEntities";
 import { Type } from "@nestjs/common";
-import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
+import { oneTimeFunc } from "src/utils/oneTimeFunc";
+import { ID } from "src/utils/entity";
+import { decoratedKlass } from "src/utils/decorator";
+import { UserType, User } from "./decorators";
 
 const accountRepository = oneTimeFunc(() => getRepository(AccountEntity));
-
-const userType = new Array<Type<CudrBaseEntity<any> & { account: AccountEntity }>>();
-
-export function UserType() {
-  return (klass: Type<CudrBaseEntity<any> & { account: AccountEntity }>) => {
-    userType.push(klass);
-  }
-}
 
 export async function login(session: Express.SessionData, { username, password }: any): Promise<ID<any> | null> {
   let target = await accountRepository().findOne({ username, password });
@@ -26,11 +20,11 @@ export async function login(session: Express.SessionData, { username, password }
   }
 }
 
-export async function account(session: Express.SessionData): Promise<AccountEntity | null> {
+export async function account(session: Express.Session): Promise<AccountEntity | null> {
   return session.savedUser || null;
 }
 
-export async function hasRole(session: Express.SessionData, roleName: string): Promise<boolean> {
+export async function hasRole(session: Express.Session, roleName: string): Promise<boolean> {
   const accountEntity = await account(session)
   if (!accountEntity) { return false }
   return accountEntity.groups.find((g) => g.roles.find(r => r.name === roleName)) !== undefined;
@@ -40,17 +34,17 @@ export async function logout(session: Express.Session) {
     if (err) { throw err }
   });
 }
-const userEntityCache = new Map<AccountEntity['id'], CudrBaseEntity<any>>()
-export async function toUserEntity(account: { id: AccountEntity['id'] }) {
-  let cache = userEntityCache.get(account.id);
-  if (!cache) {
-    for await (const type of userType) {
-      const target = await getRepository(type).findOne({ account });
-      if (target) {
-        userEntityCache.set(account.id, target)
-        cache = target;
-      }
-    }
+
+export async function toUserEntity(
+  account: { id: AccountEntity['id'] } | null,
+  klasses: Type<User> | Array<Type<User>> | void,
+) {
+  if (account === null) { return null }
+  if (klasses === undefined) { klasses = decoratedKlass(UserType); }
+  if (!(klasses instanceof Array)) { klasses = [klasses]; }
+  for await (const klass of klasses) {
+    const target = await getRepository(klass).findOne({ account });
+    if (target) { return target; }
   }
-  return cache || null;
+  return null;
 }

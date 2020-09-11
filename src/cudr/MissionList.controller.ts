@@ -1,9 +1,11 @@
 import { Controller, Post, Body, Type, BadRequestException } from "@nestjs/common";
 import { getConnection, getMetadataArgsStorage } from "typeorm";
-import { loadClassByEntityName } from "./cudr.module";
 import { CudrBaseEntity } from "./CudrBase.entity";
-import { ID, loadType } from "src/utils";
 import { CudrEventSubject } from "./transactionEvent";
+import { ID } from "src/utils/entity";
+import { loadClassByEntityName } from "./tools";
+import { decoratedKeys, loadDecoratorData } from "src/utils/decorator";
+import { DeepQuery } from "./decorators";
 
 type SaveMission = {
   type: 'save',
@@ -19,6 +21,7 @@ type DeleteMission = {
 export class MissionListController {
   @Post('transaction')
   async transaction(@Body() missionList: Array<SaveMission | DeleteMission>) {
+    if (!(missionList instanceof Array)) { missionList = [missionList]; }
     const eventFun = new Array<() => void>();
     await getConnection().transaction(async (manager) => {
       const stack = new Map<Type<CudrBaseEntity<any>>, ID<any>>();
@@ -26,25 +29,25 @@ export class MissionListController {
         const klass = loadClassByEntityName(mission.entityName);
         const eventSubject = CudrEventSubject(klass);
         if (mission.type === 'save') {
-          getMetadataArgsStorage()
-            .filterRelations(klass)
-            .filter((arg) => {
-              if (arg.relationType === 'many-to-one') { return true }
-              if (arg.relationType === 'one-to-one') {
-                const joinColumns = getMetadataArgsStorage().filterJoinColumns(klass, arg.propertyName);
-                return joinColumns.length > 0;
-              }
-            })
-            .filter((arg) => {
-              const subKlass = loadType(klass.prototype, arg.propertyName);
-              return stack.has(subKlass);
-            })
-            .forEach((arg) => {
-              if (!(arg.propertyName in mission.entity)) {
-                const entity: any = mission.entity;
-                entity[arg.propertyName] = { id: stack.get(loadType(klass.prototype, arg.propertyName)) };
-              }
-            });
+          decoratedKeys(DeepQuery, klass).filter((key) => {
+            const arg = loadDecoratorData(DeepQuery, klass, key)().metaArg;
+            if (arg.relationType === 'many-to-one') { return true }
+            if (arg.relationType === 'one-to-one') {
+              const joinColumns = getMetadataArgsStorage().filterJoinColumns(klass, arg.propertyName);
+              return joinColumns.length > 0;
+            }
+          }).filter((key) => {
+            return stack.has(loadDecoratorData(DeepQuery, klass, key)().subKlass)
+          }).forEach((key) => {
+            const {
+              metaArg: arg,
+              subKlass,
+            } = loadDecoratorData(DeepQuery, klass, key)();
+            if (!(arg.propertyName in mission.entity)) {
+              const entity: any = mission.entity;
+              entity[arg.propertyName] = { id: stack.get(subKlass) };
+            }
+          });
           const result = await manager.save(klass, mission.entity);
           stack.set(klass, result.id);
           if (mission.entity.id === undefined) {
@@ -68,6 +71,6 @@ export class MissionListController {
         }
       }
     });
-    eventFun.forEach((fun)=>fun());
+    eventFun.forEach((fun) => fun());
   }
 }
