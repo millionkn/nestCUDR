@@ -8,7 +8,7 @@ import { UserType, User } from "./decorators";
 
 const accountRepository = oneTimeFunc(() => getRepository(AccountEntity));
 
-export async function login(session: Express.SessionData, { username, password }: any): Promise<ID<any> | null> {
+export async function login(session: Express.Session, { username, password }: any): Promise<ID<any> | null> {
   let target = await accountRepository().findOne({ username, password });
   if (!target) { return null }
   const user = await toUserEntity(target);
