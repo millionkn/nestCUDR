@@ -25,7 +25,7 @@ export function GlobalRepository(): ClassDecorator {
       username: 'atest',
       password: 'Root1234',
       database: 'background',
-      synchronize: true,
+      synchronize: false,
       autoLoadEntities: true,
       logging: [
         'query',
