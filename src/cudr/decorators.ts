@@ -1,16 +1,14 @@
-import { createDecorator, loadDecoratorData } from "src/utils/decorator";
+import { loadDecoratorData, createKlassDecorator, createKeyDecorator } from "src/utils/decorator";
 import { getMetadataArgsStorage } from 'typeorm';
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { getTagetKey } from "src/utils/getTargetKey";
 import { Type } from "@nestjs/common";
-import { loadClassByEntityName } from "./tools";
 
 const savedNames: string[] = [];
-export const CudrEntity = createDecorator(`CudrEntity`, (
-  meta: void | {
+export const CudrEntity = createKlassDecorator(`CudrEntity`, (klass: Type<CudrBaseEntity>) => (
+  meta?: {
     name?: string,
   },
-  klass: Type<CudrBaseEntity>
 ) => {
   if (!meta) { meta = {} };
   let name: string;
@@ -27,17 +25,14 @@ export const CudrEntity = createDecorator(`CudrEntity`, (
   };
 })
 
-export const DeepQuery = createDecorator('DeepQuery', (
-  meta: void,
-  klass: Type<CudrBaseEntity>,
-  key: string,
+export const DeepQuery = createKeyDecorator('DeepQuery', (klass: Type<CudrBaseEntity>, key: string) => (
 ) => {
   return () => {
     const storage = getMetadataArgsStorage();
     const metaArg = storage.filterRelations(klass).filter(args => args.propertyName === key)[0];
     if (metaArg === undefined) { throw new Error(`找不到${klass.name}#${key}的类型数据`); }
     let type = metaArg.type;
-    if(typeof type ==='string'){
+    if (typeof type === 'string') {
       throw new Error();
     }
     if (!(type().prototype instanceof CudrBaseEntity)) {
@@ -50,10 +45,7 @@ export const DeepQuery = createDecorator('DeepQuery', (
   }
 });
 
-export const QueryLast = createDecorator('QueryLast', (
-  meta: void,
-  klass: Type<CudrBaseEntity>,
-  key: string,
+export const QueryLast = createKeyDecorator('QueryLast', (klass: Type<CudrBaseEntity>, key: string) => (
 ) => () => {
   const { metaArg } = loadDecoratorData(DeepQuery, klass, key)();
   if (metaArg.relationType !== 'one-to-one') { throw new Error(`${klass.name}#${key}必须是一对一关系`) }
@@ -67,12 +59,10 @@ export const QueryLast = createDecorator('QueryLast', (
   }
 });
 
-export const QueryTag = createDecorator('QueryTag', (
+export const QueryTag = createKeyDecorator('QueryTag', (klass: Type<CudrBaseEntity>, key: string) => (
   meta: {
     type?: () => any,
   },
-  klass: Type<CudrBaseEntity>,
-  key: string,
 ) => {
   return {
     type: meta.type || (() => Reflect.getMetadata('design:type', klass.prototype, key)),

@@ -3,8 +3,8 @@ import { AccountEntity } from "./authEntities";
 import { Type } from "@nestjs/common";
 import { oneTimeFunc } from "src/utils/oneTimeFunc";
 import { ID } from "src/utils/entity";
-import { decoratedKlass } from "src/utils/decorator";
 import { UserType, User } from "./decorators";
+import { loadDecoratedKlass } from "src/utils/decorator";
 
 const accountRepository = oneTimeFunc(() => getRepository(AccountEntity));
 
@@ -40,7 +40,7 @@ export async function toUserEntity(
   klasses: Type<User> | Array<Type<User>> | void,
 ) {
   if (account === null) { return null }
-  if (klasses === undefined) { klasses = decoratedKlass(UserType); }
+  if (klasses === undefined) { klasses = loadDecoratedKlass(UserType); }
   if (!(klasses instanceof Array)) { klasses = [klasses]; }
   for await (const klass of klasses) {
     const target = await getRepository(klass).findOne({ account });

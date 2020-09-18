@@ -1,116 +1,94 @@
-import { recursive } from "./recursive";
+import 'reflect-metadata';
 
-type Type<T> = new (...args: any[]) => T
+type Type<T = any> = new (...args: any[]) => T;
+
+// K:可以被此修饰器修饰的键类型
+// M:meta输入类型
+// R:meta输出类型
+
+const metaOutSym = Symbol();
+const constructorSym = Symbol();
+const nameSym = Symbol();
+const decoratedKlassSym = Symbol();
+const decoratedKeysSymSym = Symbol();
 
 export class NotDecoratedError extends Error { }
-const metaOnConstructor = Symbol('metaOnConstructor');
-const metaTypeSym = Symbol('metaType');
-const metaSym = Symbol('metadata');
-const funNameSym = Symbol('name');
-const klassesSym = Symbol(`klasses`);
 
-export type KlassDecorator<Z, T, K> = ((meta: Z) => (klass: Type<T>) => void) & ({ [metaTypeSym]: [T, K], [klassesSym]: Type<T>[] });
-export type KeyDecorator<Z, T, K, M> = ((meta: Z) => (prototype: T, key: M) => void) & ({ [metaTypeSym]: [T, K, M] });
+export type KeyDecorator<T, K extends string | symbol, M extends any[], R> = (...meta: M) => ((prototype: T, key: K) => any) & { [metaOutSym]: R };
+export type KlassDecorator<T, M extends any[], R> = (...meta: M) => ((klass: Type<T>) => any) & { [metaOutSym]: R };
 
-export function createDecorator<Z, T, K>(
+export function createKeyDecorator<T, K extends string | symbol, M extends any[], R>(
   funName: string,
-  fun: (meta: Z, klass: Type<T>) => K,
-): KlassDecorator<Z, T, K>;
-export function createDecorator<Z, T, K, M extends symbol | string>(
-  funName: string,
-  fun: (meta: Z, klass: Type<T>, key: M) => K,
-): KeyDecorator<Z, T, K, M>;
-export function createDecorator<Z, K>(
-  funName: string,
-  fun: (meta: Z, klass: Type<any>, key?: any) => K,
-) {
-  const storeSym = Symbol(funName);
-  const decorator: any = (meta: Z) => {
-    return (klass: any, key: any) => {
-      if (key) { klass = klass.constructor; }
-      const metaTarget = klass[metaSym] = klass.hasOwnProperty(metaSym) ? klass[metaSym] : {};
-      const store = metaTarget[storeSym] = metaTarget[storeSym] || {};
-      if (key) {
-        store[key] = fun(meta, klass, key);
-      } else {
-        decorator[klassesSym].push(klass);
-        store[metaOnConstructor] = fun(meta, klass);
+  fun: (klass: Type, key: K) => (...meta: M) => R
+): KeyDecorator<T, K, M, R> {
+  const decoratedKeysSym = Symbol(`${funName} decoratedKeys`);
+  const decorator: any = (...args: M) => {
+    return (prototype: any, key: K) => {
+      const meta = fun(prototype.constructor, key)(...args);
+      if (!Reflect.hasOwnMetadata(decoratedKeysSym, prototype)) {
+        Reflect.defineMetadata(decoratedKeysSym, [], prototype);
       }
+      Reflect.getMetadata(decoratedKeysSym, prototype).push(key);
+      Reflect.defineMetadata(decorator, meta, prototype, key);
     };
   };
-  decorator[metaTypeSym] = storeSym;
-  decorator[funNameSym] = funName;
-  decorator[klassesSym] = [];
+  decorator[nameSym] = funName;
+  decorator[decoratedKeysSymSym] = decoratedKeysSym;
   return decorator;
 }
-export function loadDecoratorData<T, K>(decorator: { [metaTypeSym]: [T, K] }, klass: Type<T>): K;
-export function loadDecoratorData<T, K, M>(decorator: { [metaTypeSym]: [T, K, M] }, klass: Type<T>, key: M): K;
-export function loadDecoratorData(decorator: any, klass: any, key?: any) {
-  key = key || metaOnConstructor;
-  const storeSym = decorator[metaTypeSym];
-  const store = recursive(
-    klass,
-    (current: any) => {
-      if (current === Object) {
-        return current;
-      } else {
-        return Object.getPrototypeOf(current.prototype).constructor
-      }
-    },
-    current => current,
-  ).filter(klass => klass.hasOwnProperty(metaSym))
-    .map(klass => klass[metaSym][storeSym])
-    .filter(store => store !== undefined)
-    .find(store => key in store)
-  if (store === undefined) {
-    if (key === metaOnConstructor) {
-      throw new NotDecoratedError(`${klass.name}:${decorator[funNameSym]}`);
-    } else {
-      throw new NotDecoratedError(`${klass.name}.${String(key)}:${decorator[funNameSym]}`);
-    }
+
+export function createKlassDecorator<T, M extends any[], R>(
+  funName: string,
+  fun: (klass: Type) => (...meta: M) => R
+): KlassDecorator<T, M, R> {
+  const decorator: any = (...args: M) => {
+    return (klass: Type) => {
+      const meta = fun(klass)(...args);
+      Reflect.defineMetadata(decorator, meta, klass.prototype, constructorSym);
+      decorator[decoratedKlassSym].push(klass);
+    };
+  };
+  decorator[nameSym] = funName;
+  decorator[decoratedKlassSym] = [];
+  return decorator;
+}
+
+export function loadDecoratorData<T, R>(decorator: KlassDecorator<T, any, R>, klass: Type<T>): R;
+export function loadDecoratorData<T, K extends string | symbol, R>(decorator: KeyDecorator<T, K, any, R>, klass: Type, key: K): R;
+export function loadDecoratorData(decorator: any, klass: Type, key?: string | symbol): any {
+  const funName = decorator[nameSym];
+  key = key || constructorSym;
+  if (!Reflect.hasMetadata(decorator, klass.prototype, key)) {
+    throw new NotDecoratedError(`${klass.name}${key ? `#${String(key)}` : ''}没有被${funName}修饰过`);
   }
-  return store[key];
+  return Reflect.getMetadata(decorator, klass.prototype, key);
 }
-export function decoratedKeys<T>(decorator: { [metaTypeSym]: [T, any, any] }, klass: Type<T>): Array<keyof T> {
-  const storeSym: any = decorator[metaTypeSym];
-  const arr = recursive(
-    klass,
-    (current: any) => {
-      if (current === Object) {
-        return current;
-      } else {
-        return Object.getPrototypeOf(current.prototype).constructor
-      }
-    },
-    current => current,
-  ).map((klass: any) => {
-    if (!klass.hasOwnProperty(metaSym)) { return []; }
-    const store = klass[metaSym][storeSym];
-    return Object.keys(store || {})
-  }).flat();
-  return [...new Set(arr)] as any;
+
+export function loadDecoratedKlass(decorator: KlassDecorator<any, any, any>): Type[];
+export function loadDecoratedKlass(decorator: any) {
+  return decorator[decoratedKlassSym] || [];
 }
-export function decoratedKlass<T>(decorator: { [klassesSym]: Type<T>[] }): Type<T>[] {
-  return decorator[klassesSym];
+
+export function loadDecoratedKeys<K extends string | symbol>(decorator: KeyDecorator<any, K, any, any>, klass: Type): K[];
+export function loadDecoratedKeys(decorator: any, klass: Type): any {
+  let target = klass.prototype;
+  const decoratedKeysSym = decorator[decoratedKeysSymSym];
+  const keySet = new Set<any>();
+  while (target) {
+    if (Reflect.hasOwnMetadata(decoratedKeysSym, target)) {
+      Reflect.getMetadata(decoratedKeysSym, target).forEach((key: any) => keySet.add(key));
+    }
+    target = Object.getPrototypeOf(target);
+  }
+  return [...keySet];
 }
-export function isDecorated<T>(decorator: { [metaTypeSym]: [T, any, any] }, klass: Type<T>, key: any): boolean;
-export function isDecorated<T>(decorator: { [metaTypeSym]: [T, any] }, klass: Type<T>): boolean;
-export function isDecorated<T>(decorator: { [metaTypeSym]: any }, klass: Type<T>, key?: any) {
-  key = key || metaOnConstructor;
-  const storeSym = decorator[metaTypeSym];
-  const store = recursive(
-    klass,
-    (current: any) => {
-      if (current === Object) {
-        return current;
-      } else {
-        return Object.getPrototypeOf(current.prototype).constructor
-      }
-    },
-    current => current,
-  ).filter(klass => klass.hasOwnProperty(metaSym))
-    .map(klass => klass[metaSym][storeSym])
-    .filter(store => store !== undefined)
-    .find(store => key in store)
-  return store !== undefined;
+
+export function isDecorated(decorator: KlassDecorator<any, any, any>, klass: Type): boolean;
+export function isDecorated<K extends string | symbol>(decorator: KeyDecorator<any, K, any, any>, klass: Type, key: K): boolean;
+export function isDecorated(decorator: any, klass: Type, key?: any): boolean {
+  if (key) {
+    return Reflect.hasMetadata(decorator, klass.prototype, key);
+  } else {
+    return Reflect.hasMetadata(decorator, klass);
+  }
 }

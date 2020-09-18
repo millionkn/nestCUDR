@@ -4,7 +4,7 @@ import { CudrBaseEntity } from "./CudrBase.entity";
 import { CudrEventSubject } from "./transactionEvent";
 import { ID } from "src/utils/entity";
 import { loadClassByEntityName } from "./tools";
-import { decoratedKeys, loadDecoratorData } from "src/utils/decorator";
+import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery } from "./decorators";
 
 type SaveMission = {
@@ -29,7 +29,7 @@ export class MissionListController {
         const klass = loadClassByEntityName(mission.entityName);
         const eventSubject = CudrEventSubject(klass);
         if (mission.type === 'save') {
-          decoratedKeys(DeepQuery, klass).filter((key) => {
+          loadDecoratedKeys(DeepQuery, klass).filter((key) => {
             const arg = loadDecoratorData(DeepQuery, klass, key)().metaArg;
             if (arg.relationType === 'many-to-one') { return true }
             if (arg.relationType === 'one-to-one') {

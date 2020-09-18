@@ -1,7 +1,7 @@
 import { Module, DynamicModule, Controller, Post, Body, Type, BadRequestException } from '@nestjs/common';
 import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
-import { decoratedKlass, loadDecoratorData, decoratedKeys, isDecorated } from 'src/utils/decorator';
+import { loadDecoratedKlass, loadDecoratorData, isDecorated } from 'src/utils/decorator';
 import { CudrEntity, DeepQuery, QueryTag } from './decorators';
 import { QueryOption, jsonQuery } from './jsonQuery/jsonQuery';
 import { getRepository } from 'typeorm';
@@ -40,7 +40,7 @@ export class CudrModule {
       module: CudrModule,
       controllers: [
         MissionListController,
-        ...decoratedKlass(CudrEntity).map((klass) => {
+        ...loadDecoratedKlass(CudrEntity).map((klass) => {
           const name = loadDecoratorData(CudrEntity, klass).name;
           @Controller(`cudr/${name}`)
           class CudrController {
