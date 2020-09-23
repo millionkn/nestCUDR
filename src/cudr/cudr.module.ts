@@ -91,6 +91,65 @@ export class CudrModule {
                 };
               }
             }
+            @Post('findSum')
+            async findSum(@Body() body: {
+              where: QueryOption<InstanceType<typeof klass>>,
+              date: {
+                moreOrEqual?: string,
+                lessOrEqual?: string,
+              }[],
+            }) {
+              if (false
+                || typeof body !== 'object'
+                || typeof body.where !== 'object'
+                || body.where === null
+              ) {
+                throw new BadRequestException('缺少where')
+              }
+              const qb = getRepository(klass).createQueryBuilder(`body`);
+              const contextArr = jsonQuery(qb, `body`, klass, body.where);
+              if (contextArr.filter((cont) => typeof cont.userMeta.groupByAlias === 'string').length === 0) {
+                throw new BadRequestException('缺少groupByAlias');
+              } else if (contextArr.filter((cont) => typeof cont.userMeta.weight === 'number').length === 0) {
+                throw new BadRequestException('缺少weight');
+              } else if (!(body.date instanceof Array)) {
+                throw new BadRequestException('date必须是数组');
+              }
+              qb.select('1');
+              const callback: Array<(obj: { target: any, value: any[] }, raw: any) => void> = [];
+              contextArr.filter((cont) => typeof cont.userMeta.groupByAlias === 'string')
+                .forEach((cont, index) => {
+                  qb.addGroupBy(`${cont.alias}.${cont.key}`)
+                    .addSelect(`${cont.alias}.${cont.key}`, `result${index}`);
+                  callback.push((obj, raw) => obj.target[cont.userMeta.groupByAlias] = raw[`result${index}`]);
+                });
+              const sumStrBase = contextArr
+                .filter((cont) => typeof cont.userMeta.weight === 'number')
+                .map((cont) => `${cont.userMeta.weight}*${cont.alias}.${cont.key}`)
+                .join('+');
+              body.date.forEach((dateInfo, dateIndex) => {
+                let sumStr = sumStrBase;
+                if (dateInfo.moreOrEqual) {
+                  sumStr = `if(body.createDate>=:more,${sumStr},0)`;
+                  qb.setParameter('more', moment(dateInfo.moreOrEqual).startOf('second').toDate())
+                }
+                if (dateInfo.lessOrEqual) {
+                  sumStr = `if(body.createDate<=:less,${sumStr},0)`;
+                  qb.setParameter('less', moment(dateInfo.lessOrEqual).endOf('second').toDate())
+                }
+                qb.addSelect(`sum(${sumStr})`, `date${dateIndex}`);
+                callback.push((obj, raw) => obj.value.push(raw[`date${dateIndex}`]));
+              });
+              const result = await qb.getRawMany();
+              return result.map((raw) => {
+                const obj: any = {
+                  target: {},
+                  value: [],
+                };
+                callback.forEach((fun) => fun(obj, raw));
+                return obj;
+              });
+            }
           }
           let controllerKlass = eval(`class ${name}CudrController extends CudrController{};${name}CudrController`);
           return controllerKlass;
