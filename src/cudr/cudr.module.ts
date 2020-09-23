@@ -21,7 +21,7 @@ function transformerTo<T extends CudrBaseEntity>(klass: Type<T>, entities: Array
         const type = loadDecoratorData(QueryTag, klass, key).type();
         if (type === Date) {
           entity[key] = moment(entity[key]).format('YYYY-MM-DD HH:mm:ss');
-        }else if(type === Number){
+        } else if (type === Number) {
           entity[key] = Number.parseFloat(entity[key]);
         }
       }
@@ -58,7 +58,8 @@ export class CudrModule {
                 throw new BadRequestException('缺少where')
               }
               const qb = getRepository(klass).createQueryBuilder(`body`);
-              jsonQuery(qb, `body`, klass, body.where);
+              const contextArr = jsonQuery(qb, `body`, klass, body.where)
+                .filter((context) => typeof context.userMeta.sortIndex === 'number');
               if (undefined !== body.pageIndex) {
                 if (body.pageSize === undefined) {
                   qb.skip((body.pageIndex - 1) * 15);
@@ -76,6 +77,11 @@ export class CudrModule {
                   total: await qb.getCount()
                 }
               } else {
+                contextArr.sort((a, b) => a.deep === b.deep ? a.deep - b.deep : Math.abs(a.userMeta.sortIndex) - Math.abs(b.userMeta.sortIndex))
+                  .forEach((opt) => {
+                    if (opt.userMeta.sortIndex === 0) { throw new BadRequestException('sortIndex不能为0') }
+                    qb.addOrderBy(`${opt.alias}.${opt.key}`, opt.userMeta.sortIndex > 0 ? 'ASC' : 'DESC');
+                  });
                 qb.addOrderBy(`body.createDate`, 'DESC');
                 const [selectResult, total] = await qb.getManyAndCount();
                 transformerTo(klass, selectResult);

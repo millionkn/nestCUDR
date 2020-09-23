@@ -11,14 +11,20 @@ export type QueryOption<T extends CudrBaseEntity<any>> = {
   : T[key] extends ID<any> ? { ''?: { in?: T['id'][] } }
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key]> & { ''?: { isNull?: boolean } }
   : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X> & { ''?: { isEmpty?: boolean } } : never
-  : T[key] extends string ? { ''?: { sortIndex?: number, like?: string, equal?: string } }
-  : T[key] extends number ? { ''?: { sortIndex?: number, between?: { lessOrEqual: number, moreOrEqual: number } } }
-  : T[key] extends Date ? { ''?: { sortIndex?: number, isNull?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
+  : T[key] extends string ? { ''?: { like?: string, equal?: string } }
+  : T[key] extends number ? { ''?: { between?: { lessOrEqual: number, moreOrEqual: number } } }
+  : T[key] extends Date ? { ''?: { isNull?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
   : T[key] extends boolean ? { ''?: { equal: boolean } }
   : never
 }
 
-type sortInfo = { index: number, by: string }
+export type MetaContext = {
+  userMeta: any,
+  alias: string,
+  key: string,
+  index: number,
+  deep: number,
+}
 
 function buildQuery<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
@@ -26,8 +32,9 @@ function buildQuery<T extends CudrBaseEntity<any>>(
   alias: string,
   whereFun: (cb: (qw: WhereExpression) => void) => void,
   qb: SelectQueryBuilder<any>,
-  sortIndexArray: sortInfo[],
+  metaExtra?: (opt: MetaContext) => void,
 ) {
+  const extraFun = metaExtra || (() => { });
   Object.keys(body).forEach((key, index) => {
     if (key === '') { return }
     const subBody = body[key];
@@ -64,11 +71,11 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         } else if (meta && meta.isNull === false) {
           whereFun((we) => {
             we.andWhere(`${metaTarget} is not null`);
-            buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => cb(we), qb, sortIndexArray);
+            buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => cb(we), qb, extraFun);
           });
         } else {
           const whereArr = new Array<(qb: WhereExpression) => void>();
-          buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => whereArr.push(cb), qb, sortIndexArray);
+          buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => whereArr.push(cb), qb, extraFun);
           if (whereArr.length !== 0) {
             whereFun((we) => {
               we.andWhere(new Brackets((swe) => {
@@ -85,11 +92,11 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         if (meta && meta.isEmpty === true) {
           whereFun((qw) => qw.andWhere(`${alias}_${index}.id is null`));
         } else if (meta && meta.isEmpty === false) {
-          buildQuery(subKlass, subBody, `${alias}_${index}`, whereFun, qb, []);
+          buildQuery(subKlass, subBody, `${alias}_${index}`, whereFun, qb, (opt) => extraFun({ ...opt, deep: opt.deep + 1 }));
           whereFun((qw) => qw.andWhere(`${alias}_${index}.id is not null`));
         } else {
           const whereArr = new Array<(qb: WhereExpression) => void>();
-          buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => whereArr.push(cb), qb, []);
+          buildQuery(subKlass, subBody, `${alias}_${index}`, (cb) => whereArr.push(cb), qb, (opt) => extraFun({ ...opt, deep: opt.deep + 1 }));
           if (whereArr.length !== 0) {
             whereFun((we) => {
               we.andWhere(new Brackets((swe) => {
@@ -153,11 +160,14 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       } else {
         throw new BadRequestException(`未知的类型:${klass.name}#${key}`);
       }
-      if (typeof meta.sortIndex === 'number') {
-        sortIndexArray.push({
-          index: meta.sortIndex,
-          by: `${alias}.${key}`,
-        })
+      if (meta && '' in meta) {
+        extraFun({
+          userMeta: meta[''],
+          alias,
+          key,
+          index,
+          deep: 0,
+        });
       }
     }
   });
@@ -169,9 +179,7 @@ export function jsonQuery<T extends CudrBaseEntity<any>>(
   klass: Type<T>,
   body: QueryOption<T>,
 ) {
-  const sortArr: sortInfo[] = []
-  buildQuery(klass, body, alias, (cb) => cb(qb), qb, sortArr);
-  sortArr.sort((a, b) => Math.abs(a.index) - Math.abs(b.index)).forEach((info) => {
-    qb.addOrderBy(info.by, info.index > 0 ? 'ASC' : 'DESC');
-  })
+  const arr: MetaContext[] = [];
+  buildQuery(klass, body, alias, (cb) => cb(qb), qb, (opt) => arr.push(opt));
+  return arr;
 }
