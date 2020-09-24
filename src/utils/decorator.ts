@@ -89,6 +89,6 @@ export function isDecorated(decorator: any, klass: Type, key?: any): boolean {
   if (key) {
     return Reflect.hasMetadata(decorator, klass.prototype, key);
   } else {
-    return Reflect.hasMetadata(decorator, klass);
+    return Reflect.hasMetadata(decorator, klass, constructorSym);
   }
 }
