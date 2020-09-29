@@ -12,8 +12,8 @@ export type QueryOption<T extends CudrBaseEntity<any>> = {
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key]> & { ''?: { isNull?: boolean } }
   : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X> & { ''?: { isEmpty?: boolean } } : never
   : T[key] extends string ? { ''?: { like?: string, equal?: string } }
-  : T[key] extends number ? { ''?: { between?: { lessOrEqual: number, moreOrEqual: number } } }
-  : T[key] extends Date ? { ''?: { isNull?: boolean, between?: { lessOrEqual: string, moreOrEqual: string } } }
+  : T[key] extends number ? { ''?: { lessOrEqual?: number, moreOrEqual?: number } }
+  : T[key] extends Date ? { ''?: { lessOrEqual?: string, moreOrEqual?: string } }
   : T[key] extends boolean ? { ''?: { equal: boolean } }
   : never
 }
@@ -127,35 +127,28 @@ function buildQuery<T extends CudrBaseEntity<any>>(
           whereFun((qb) => qb.andWhere(`${alias}.${key} like :${valueKey}`, { [valueKey]: `%${meta.like}%` }));
         }
       } else if (subKlass === Number) {
-        if (typeof meta.between === 'object' && meta.between !== null) {
-          if (typeof meta.between.lessOrEqual === 'number' && typeof meta.between.moreOrEqual === 'number') {
-            whereFun((qb) => qb.andWhere(`${alias}.${key} between :${valueKey}_more and :${valueKey}_less`, {
-              [`${valueKey}_more`]: meta.between.moreOrEqual,
-              [`${valueKey}_less`]: meta.between.lessOrEqual,
-            }));
-          }
+        if (typeof meta.lessOrEqual === 'number') {
+          whereFun((qb) => qb.andWhere(`${alias}.${key} <= :${valueKey}_less`, {
+            [`${valueKey}_less`]: meta.lessOrEqual,
+          }));
+        }
+        if (typeof meta.moreOrEqual === 'number') {
+          whereFun((qb) => qb.andWhere(`${alias}.${key} >= :${valueKey}_more`, {
+            [`${valueKey}_more`]: meta.moreOrEqual,
+          }));
         }
       } else if (subKlass === Date) {
-        if (meta.isNull === true) {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} is null`));
-        } else if (meta.between && typeof meta.between.lessOrEqual === 'string' && typeof meta.between.moreOrEqual === 'string') {
-          const less = moment(meta.between.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
-          const more = moment(meta.between.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
-          if (meta.isNull === false) {
-            whereFun((qb) => qb.andWhere(`${alias}.${key} between :${valueKey}_more and :${valueKey}_less`, {
-              [`${valueKey}_more`]: more,
-              [`${valueKey}_less`]: less,
-            }));
-          } else {
-            whereFun((qb) => qb.andWhere(`(${alias}.${key} is null or (${alias}.${key} between :${valueKey}_more and :${valueKey}_less))`, {
-              [`${valueKey}_more`]: more,
-              [`${valueKey}_less`]: less,
-            }))
-          }
-        } else {
-          if (meta.isNull === false) {
-            whereFun((qb) => qb.andWhere(`${alias}.${key} is not null`));
-          }
+        if (typeof meta.lessOrEqual === 'string') {
+          const less = moment(meta.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
+          whereFun((qb) => qb.andWhere(`${alias}.${key} <= :${valueKey}_less`, {
+            [`${valueKey}_less`]: less,
+          }));
+        }
+        if (typeof meta.moreOrEqual === 'string') {
+          const more = moment(meta.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
+          whereFun((qb) => qb.andWhere(`${alias}.${key} >= :${valueKey}_more`, {
+            [`${valueKey}_more`]: more,
+          }));
         }
       } else {
         throw new BadRequestException(`未知的类型:${klass.name}#${key}`);
