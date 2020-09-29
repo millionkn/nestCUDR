@@ -120,12 +120,12 @@ class CommentEntity extends BaseEntity{//用户评论
   ```
   如果在进行查询时，除非特别标记，会查询所有被`@Column`修饰的字段(除非明确标记不查询，例如`BlobEntity`的`blob`属性),对于`CommentEntity`来说,除了有自身的`content`,还有继承来的`id`和`createDate`
 
-  当字段的属性对应时,可用的过滤条件分别为:
+  当字段的属性对应时,可用的过滤条件分别为(全部可选):
   - `ID`:{in:['id']}
-  - `string`:{like:'str'}
+  - `string`:{like:'str',equal:'str',in:['str1','str2']}//只生效其中一个
   - `boolean`:{equal:false}
-  - `number`:{lessOrEqual:100,moreOrEqual:0}//都是可选的
-  - `Date`:{lessOrEqual:'2020-12-30 23:59:59',moreOrEqual:'2020-01-01 00:00:00'}//都是可选的
+  - `number`:{lessOrEqual:100,moreOrEqual:0}
+  - `Date`:{lessOrEqual:'2020-12-30 23:59:59',moreOrEqual:'2020-01-01 00:00:00'}
 - 带join的查询
   
   > 被`@DeepQuery`修饰的字段才能进行join操作
