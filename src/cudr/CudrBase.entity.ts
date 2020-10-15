@@ -1,10 +1,11 @@
-import { CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { CreateDateColumn, Entity, PrimaryGeneratedColumn, Index } from "typeorm";
 import { QueryTag } from "./decorators";
 import { BaseEntity, ID } from "src/utils/entity";
 
 @Entity()
 export class CudrBaseEntity<T = any> implements BaseEntity<T> {
   @PrimaryGeneratedColumn('uuid')
+  @Index()
   @QueryTag({
     type: () => ID
   })
@@ -12,6 +13,7 @@ export class CudrBaseEntity<T = any> implements BaseEntity<T> {
   @QueryTag({
     type: () => Date
   })
+  @Index()
   @CreateDateColumn()
   createDate!: Date
 }
