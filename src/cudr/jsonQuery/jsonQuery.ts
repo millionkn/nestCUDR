@@ -6,20 +6,20 @@ import { ID } from "src/utils/entity";
 import { loadDecoratorData, isDecorated } from "src/utils/decorator";
 import { DeepQuery, QueryTag, QueryLast } from "../decorators";
 
-export type QueryOption<T extends CudrBaseEntity<any>> = {
+export type QueryOption<T extends CudrBaseEntity<any>, K> = {
   [key in Extract<keyof T, string>]?
-  : T[key] extends ID<any> ? { ''?: { in?: T['id'][] } }
-  : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key]> & { ''?: { isNull?: boolean } }
-  : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X> & { ''?: { isEmpty?: boolean } } : never
-  : T[key] extends string ? { ''?: { like?: string, equal?: string, in?: string[] } }
-  : T[key] extends number ? { ''?: { lessOrEqual?: number, moreOrEqual?: number } }
-  : T[key] extends Date ? { ''?: { lessOrEqual?: string, moreOrEqual?: string } }
-  : T[key] extends boolean ? { ''?: { equal: boolean } }
+  : T[key] extends ID<any> ? { ''?: { ''?: K, in?: T['id'][] } }
+  : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key], K> & { ''?: { ''?: K, isNull?: boolean } }
+  : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X, K> & { ''?: { ''?: K, isEmpty?: boolean } } : never
+  : T[key] extends Date ? { ''?: { ''?: K, lessOrEqual?: string, moreOrEqual?: string } }
+  : T[key] extends string ? { ''?: { ''?: K, like?: string, equal?: string, in?: string[] } }
+  : T[key] extends number ? { ''?: { ''?: K, lessOrEqual?: number, moreOrEqual?: number } }
+  : T[key] extends boolean ? { ''?: { ''?: K, equal: boolean } }
   : never
 }
 
-export type MetaContext = {
-  userMeta: any,
+export type MetaContext<T = any> = {
+  userMeta: T,
   alias: string,
   key: string,
   index: number,
@@ -170,13 +170,13 @@ function buildQuery<T extends CudrBaseEntity<any>>(
   });
 }
 
-export function jsonQuery<T extends CudrBaseEntity<any>>(
+export function jsonQuery<T extends CudrBaseEntity<any>, K>(
   qb: SelectQueryBuilder<T>,
   alias: string,
   klass: Type<T>,
-  body: QueryOption<T>,
+  body: QueryOption<T, K>,
 ) {
-  const arr: MetaContext[] = [];
+  const arr: MetaContext<K>[] = [];
   buildQuery(klass, body, alias, (cb) => cb(qb), qb, (opt) => arr.push(opt));
   return arr;
 }

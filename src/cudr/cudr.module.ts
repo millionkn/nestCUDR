@@ -3,7 +3,7 @@ import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
 import { loadDecoratedKlass, loadDecoratorData, isDecorated } from 'src/utils/decorator';
 import { CudrEntity, DeepQuery, QueryTag } from './decorators';
-import { QueryOption, jsonQuery } from './jsonQuery/jsonQuery';
+import { QueryOption, jsonQuery, MetaContext } from './jsonQuery/jsonQuery';
 import { getRepository } from 'typeorm';
 import { CudrBaseEntity } from './CudrBase.entity';
 import * as moment from 'moment';
@@ -46,7 +46,7 @@ export class CudrModule {
           class CudrController {
             @Post('findEntityList')
             async findEntityList(@Body() body: {
-              where: QueryOption<InstanceType<typeof klass>>,
+              where: QueryOption<InstanceType<typeof klass>, { sortIndex: number }>,
               pageIndex?: number,
               pageSize?: number,
             }) {
@@ -91,13 +91,14 @@ export class CudrModule {
                 };
               }
             }
-            @Post('findSum')
-            async findSum(@Body() body: {
-              where: QueryOption<InstanceType<typeof klass>>,
-              date: {
-                moreOrEqual?: string,
-                lessOrEqual?: string,
-              }[],
+            @Post('statistic')
+            async statistic(@Body() body: {
+              where: QueryOption<
+                InstanceType<typeof klass>,
+                | { alias: string }
+                | { time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }
+                | { alias: string, select: 'count' | 'sum' }
+              >,
             }) {
               if (false
                 || typeof body !== 'object'
@@ -108,47 +109,68 @@ export class CudrModule {
               }
               const qb = getRepository(klass).createQueryBuilder(`body`);
               const contextArr = jsonQuery(qb, `body`, klass, body.where);
-              if (contextArr.filter((cont) => typeof cont.userMeta.groupByAlias === 'string').length === 0) {
-                throw new BadRequestException('缺少groupByAlias');
-              } else if (contextArr.filter((cont) => typeof cont.userMeta.weight === 'number').length === 0) {
-                throw new BadRequestException('缺少weight');
-              } else if (!(body.date instanceof Array)) {
-                throw new BadRequestException('date必须是数组');
-              }
               qb.select('1');
-              const callback: Array<(obj: { target: any, value: any[] }, raw: any) => void> = [];
-              contextArr.filter((cont) => typeof cont.userMeta.groupByAlias === 'string')
-                .forEach((cont, index) => {
-                  qb.addGroupBy(`${cont.alias}.${cont.key}`)
-                    .addSelect(`${cont.alias}.${cont.key}`, `result${index}`);
-                  callback.push((obj, raw) => obj.target[cont.userMeta.groupByAlias] = raw[`result${index}`]);
+              let timeCont: MetaContext<{ time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }> = contextArr.filter((cont) => 'time' in cont.userMeta)[0] as any;
+              let selectArr: MetaContext<{ alias: string, select: 'count' | 'sum' }>[] = contextArr.filter((cont) => 'select' in cont.userMeta) as any;
+              let itemArr: MetaContext<{ alias: string }>[] = contextArr.filter((cont) => 'alias' in cont.userMeta && !('select' in cont.userMeta)) as any;
+              const afterFun = new Array<(raw: any, obj: any) => void>();
+              itemArr.forEach((cont, index) => {
+                qb.addGroupBy(`${cont.alias}.${cont.key}`);
+                qb.addSelect(`${cont.alias}.${cont.key}`, `item_${index}`);
+                afterFun.push((raw, obj) => {
+                  obj[cont.userMeta.alias] = raw[`item_${index}`];
                 });
-              const sumStrBase = contextArr
-                .filter((cont) => typeof cont.userMeta.weight === 'number')
-                .map((cont) => `${cont.userMeta.weight}*${cont.alias}.${cont.key}`)
-                .join('+');
-              body.date.forEach((dateInfo, dateIndex) => {
-                let sumStr = sumStrBase;
-                if (dateInfo.moreOrEqual) {
-                  sumStr = `if(body.createDate>=:more,${sumStr},0)`;
-                  qb.setParameter('more', moment(dateInfo.moreOrEqual).startOf('second').toDate())
-                }
-                if (dateInfo.lessOrEqual) {
-                  sumStr = `if(body.createDate<=:less,${sumStr},0)`;
-                  qb.setParameter('less', moment(dateInfo.lessOrEqual).endOf('second').toDate())
-                }
-                qb.addSelect(`sum(${sumStr})`, `date${dateIndex}`);
-                callback.push((obj, raw) => obj.value.push(raw[`date${dateIndex}`]));
               });
-              const result = await qb.getRawMany();
-              return result.map((raw) => {
-                const obj: any = {
-                  target: {},
-                  value: [],
-                };
-                callback.forEach((fun) => fun(obj, raw));
-                return obj;
+              const timeIsArray = timeCont.userMeta.time instanceof Array;
+              selectArr.forEach((cont, selectIndex) => {
+                const sqlFunc = cont.userMeta.select;
+                (timeCont.userMeta.time instanceof Array ? timeCont.userMeta.time : [timeCont.userMeta.time]).forEach((t, timeIndex) => {
+                  let onFalse: string;
+                  if (sqlFunc === 'count') {
+                    onFalse = 'null';
+                    afterFun.push((raw, obj) => {
+                      const result = Number.parseInt(raw[`result_${selectIndex}_time_${timeIndex}`]);
+                      if (timeIsArray) {
+                        const arr = obj[cont.userMeta.alias] = obj[cont.userMeta.alias] || [];
+                        arr.push(result);
+                      } else {
+                        obj[cont.userMeta.alias] = result;
+                      }
+                    });
+                  } else if (sqlFunc === 'sum') {
+                    onFalse = '0';
+                    afterFun.push((raw, obj) => {
+                      const result = Number.parseFloat(raw[`result_${selectIndex}_time_${timeIndex}`]);
+                      if (timeIsArray) {
+                        const arr = obj[cont.userMeta.alias] = obj[cont.userMeta.alias] || [];
+                        arr.push(result);
+                      } else {
+                        obj[cont.userMeta.alias] = result;
+                      }
+                    });
+                  } else {
+                    throw new BadRequestException(`无效的select:${sqlFunc}`);
+                  }
+                  const ref = `${timeCont.alias}.${timeCont.key}`;
+                  let str = ref;
+                  const key = `select_${selectIndex}_time_${timeIndex}`;
+                  if (t.lessOrEqual) {
+                    str = `if(${ref} <= :${key}_less,${str},${onFalse})`;
+                    qb.setParameter(`${key}_less`, moment(t.lessOrEqual).startOf('second').toDate());
+                  }
+                  if (t.moreOrEqual) {
+                    str = `if(${ref} >= :${key}_more,${str},${onFalse})`;
+                    qb.setParameter(`${key}_more`, moment(t.moreOrEqual).endOf('second').toDate());
+                  }
+                  qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
+                });
               });
+              const rawArray = await qb.getRawMany();
+              return rawArray.map((raw) => {
+                const ret = {};
+                afterFun.forEach((fun) => fun(raw, ret));
+                return ret;
+              })
             }
           }
           let controllerKlass = eval(`class ${name}CudrController extends CudrController{};${name}CudrController`);

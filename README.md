@@ -73,6 +73,8 @@ class CommentEntity extends BaseEntity{//用户评论
   user:UserEntity
   @Column()
   content:string//内容
+  @Column()
+  experience:number //用户通过评论获取的经验值
 }
 ```
 
@@ -308,3 +310,67 @@ class CommentEntity extends BaseEntity{//用户评论
     排序的结果以`index1`升序,之后以`obj.index2`逆序排序
 
     此外,在一对多和多对一关系中,数组内会单独排序,不会影响数组外
+## 统计
+
+- 查询用户的经验值，`经验值`仅来自用户评论，用户的经验值为用户每次评论的经验值相加
+>`[Post] cudr/comment/statistic`
+```ts
+const requestBody = {
+  where:{
+    id:{
+      '':{'':{select:'count',alias:'评论数'}}
+    },
+    experience:{
+      '':{ '':{select:'sum',alias:'经验值'} }
+    },
+    createDate:{
+      '':{
+        '':{
+          time:[
+            {
+              moreOrEqual:'2020-01-01 00:00:00',
+              lessOrEqual:'2020-12-31 23:59:59',
+            },
+            {
+              lessOrEqual:'2020-12-31 23:59:59',
+            },
+            {
+              moreOrEqual:'2020-01-01 00:00:00',
+            },
+            {},
+          ]
+        }
+      }
+    },
+    user:{
+      id:{'':{
+        // isNull:false,
+        '':{alias:'userId'}，
+      }},
+    }
+  }
+}
+```
+返回值类似
+```ts
+[
+  {
+    userId:null,//假如数据库中comment的user可能为null
+    评论数:[
+      //...四个数字，分别为:
+      // 0: 2020年全年的评论数
+      // 1: 2020年12月31号23：59：59之前的评论数
+      // 2: 2020年1月1号00：00：00之后的评论数
+      // 3: 用户全部的评论数(where过滤后)
+    ],
+    经验值:[
+      //...四个数字,同上
+    ]
+  },
+  //...
+]
+```
+其中，`time`有且只有一个，传入条件数组时，`select`结果的顺序与传入条件数组的顺序相同；也可以传入一个非数组日期条件，返回值中select的所有结果都会变为数字而非数组
+
+实际上，返回的结果是通过类似`findEntityList`过滤后统计出来的，所以你可以直接过滤掉`userId`为`null`的结果，只需要和`findEntityList`一样，使用`isNull:false`即可。
+
