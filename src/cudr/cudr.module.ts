@@ -111,6 +111,7 @@ export class CudrModule {
               const contextArr = jsonQuery(qb, `body`, klass, body.where);
               qb.select('1');
               let timeCont: MetaContext<{ time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }> = contextArr.filter((cont) => 'time' in cont.userMeta)[0] as any;
+              timeCont = timeCont || { alias: `body`, key: `createDate`, userMeta: { time: {} } }
               let selectArr: MetaContext<{ alias: string, select: 'count' | 'sum' }>[] = contextArr.filter((cont) => 'select' in cont.userMeta) as any;
               let itemArr: MetaContext<{ alias: string }>[] = contextArr.filter((cont) => 'alias' in cont.userMeta && !('select' in cont.userMeta)) as any;
               const afterFun = new Array<(raw: any, obj: any) => void>();
