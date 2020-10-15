@@ -6,7 +6,7 @@ import { ID } from "src/utils/entity";
 import { loadDecoratorData, isDecorated } from "src/utils/decorator";
 import { DeepQuery, QueryTag, QueryLast } from "../decorators";
 
-export type QueryOption<T extends CudrBaseEntity<any>, K> = {
+export type QueryOption<T extends CudrBaseEntity<any>, K = any> = {
   [key in Extract<keyof T, string>]?
   : T[key] extends ID<any> ? { ''?: { ''?: K, in?: T['id'][] } }
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key], K> & { ''?: { ''?: K, isNull?: boolean } }
