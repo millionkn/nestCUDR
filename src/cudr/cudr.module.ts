@@ -1,9 +1,9 @@
-import { Module, DynamicModule, Controller, Post, Body, Inject } from '@nestjs/common';
+import { Module, DynamicModule, Controller, Post, Body, Inject, BadRequestException } from '@nestjs/common';
 import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
 import { loadDecoratedKlass, loadDecoratorData } from 'src/utils/decorator';
 import { CudrEntity } from './decorators';
-import { CudrService } from './cudr.service';
+import { CudrService, CudrException } from './cudr.service';
 
 @Module({
   imports: [
@@ -17,7 +17,7 @@ export class CudrModule {
       providers: [
         CudrService,
       ],
-      exports:[
+      exports: [
         CudrService,
       ],
       controllers: [
@@ -29,11 +29,27 @@ export class CudrModule {
             @Inject(CudrService) service!: CudrService;
             @Post('findEntityList')
             async findEntityList(@Body() body: any) {
-              return await this.service.findEntityList(klass, body)
+              try {
+                return await this.service.findEntityList(klass, body);
+              } catch (e) {
+                if (e instanceof CudrException) {
+                  throw new BadRequestException(e.message)
+                } else {
+                  throw e;
+                }
+              }
             }
             @Post('statistic')
             async statistic(@Body() body: any) {
-              return await this.service.statistic(klass, body);
+              try {
+                return await this.service.statistic(klass, body);
+              } catch (e) {
+                if (e instanceof CudrException) {
+                  throw new BadRequestException(e.message)
+                } else {
+                  throw e;
+                }
+              }
             }
           }
           let controllerKlass = eval(`class ${name}${CudrController.name} extends ${CudrController.name}{};${name}${CudrController.name}`);
