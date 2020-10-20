@@ -13,6 +13,7 @@ function transformerTo<T extends BaseEntity>(klass: Type<T>, entities: Array<T> 
     entities = [entities];
   }
   entities.forEach((entity: any) => {
+    if (typeof entity !== 'object' || entity === null) { return }
     Object.keys(entity).forEach(key => {
       if (isDecorated(DeepQuery, klass, key)) {
         const data = loadDecoratorData(DeepQuery, klass, key)();
