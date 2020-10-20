@@ -6,7 +6,7 @@ import { CudrEntity, DeepQuery, QueryTag } from './decorators';
 import { QueryOption, jsonQuery, MetaContext } from './jsonQuery/jsonQuery';
 import { getRepository } from 'typeorm';
 import { CudrBaseEntity } from './CudrBase.entity';
-import * as moment from 'moment';
+import * as dayjs from 'dayjs';
 
 function transformerTo<T extends CudrBaseEntity>(klass: Type<T>, entities: Array<T> | T) {
   if (!(entities instanceof Array)) {
@@ -20,7 +20,7 @@ function transformerTo<T extends CudrBaseEntity>(klass: Type<T>, entities: Array
       } else if (isDecorated(QueryTag, klass, key)) {
         const type = loadDecoratorData(QueryTag, klass, key).type();
         if (type === Date) {
-          entity[key] = moment(entity[key]).format('YYYY-MM-DD HH:mm:ss');
+          entity[key] = dayjs(entity[key]).format('YYYY-MM-DD HH:mm:ss');
         } else if (type === Number) {
           entity[key] = Number.parseFloat(entity[key]);
         }
@@ -157,11 +157,11 @@ export class CudrModule {
                   const key = `select_${selectIndex}_time_${timeIndex}`;
                   if (t.lessOrEqual) {
                     str = `if(${ref} <= :${key}_less,${str},${onFalse})`;
-                    qb.setParameter(`${key}_less`, moment(t.lessOrEqual).startOf('second').toDate());
+                    qb.setParameter(`${key}_less`, dayjs(t.lessOrEqual).startOf('second').toDate());
                   }
                   if (t.moreOrEqual) {
                     str = `if(${ref} >= :${key}_more,${str},${onFalse})`;
-                    qb.setParameter(`${key}_more`, moment(t.moreOrEqual).endOf('second').toDate());
+                    qb.setParameter(`${key}_more`, dayjs(t.moreOrEqual).endOf('second').toDate());
                   }
                   qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
                 });

@@ -1,7 +1,7 @@
 import { CudrBaseEntity } from "../CudrBase.entity";
 import { Type, BadRequestException } from "@nestjs/common";
 import { Brackets, SelectQueryBuilder, WhereExpression } from "typeorm";
-import * as moment from 'moment';
+import * as dayjs from 'dayjs';
 import { ID } from "src/utils/entity";
 import { loadDecoratorData, isDecorated } from "src/utils/decorator";
 import { DeepQuery, QueryTag, QueryLast } from "../decorators";
@@ -143,13 +143,13 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         }
       } else if (subKlass === Date) {
         if (typeof meta.lessOrEqual === 'string') {
-          const less = moment(meta.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
+          const less = dayjs(meta.lessOrEqual, 'YYYY-MM-DD HH:mm:ss').startOf('second').toDate();
           whereFun((qb) => qb.andWhere(`${alias}.${key} <= :${valueKey}_less`, {
             [`${valueKey}_less`]: less,
           }));
         }
         if (typeof meta.moreOrEqual === 'string') {
-          const more = moment(meta.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
+          const more = dayjs(meta.moreOrEqual, 'YYYY-MM-DD HH:mm:ss').endOf('second').toDate();
           whereFun((qb) => qb.andWhere(`${alias}.${key} >= :${valueKey}_more`, {
             [`${valueKey}_more`]: more,
           }));
