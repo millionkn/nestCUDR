@@ -65,8 +65,8 @@ export const QueryTransformer = createKeyDecorator(`Transformer`, () => (meta: {
   fromClient?: (value: any, entity: any) => any,
 }) => {
   return {
-    toClient: meta.toClient || ((value) => value),
-    fromClient: meta.fromClient || ((value) => value),
+    toClient: meta.toClient || ((value, entity) => value),
+    fromClient: meta.fromClient || ((value, entity) => value),
   }
 });
 
