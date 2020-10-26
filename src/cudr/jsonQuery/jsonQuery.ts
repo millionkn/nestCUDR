@@ -4,7 +4,7 @@ import { Brackets, SelectQueryBuilder, WhereExpression } from "typeorm";
 import * as dayjs from 'dayjs';
 import { ID } from "src/utils/entity";
 import { loadDecoratorData, isDecorated } from "src/utils/decorator";
-import { DeepQuery, QueryTag, QueryLast } from "../decorators";
+import { DeepQuery, QueryLast, QueryType } from "../decorators";
 
 export type QueryOption<T extends CudrBaseEntity<any>, K = any> = {
   [key in Extract<keyof T, string>]?
@@ -110,7 +110,7 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         }
       }
     } else {
-      const subKlass = isDecorated(QueryTag, klass, key) ? loadDecoratorData(QueryTag, klass, key).type() : Reflect.getMetadata('design:type', klass.prototype, key)
+      const subKlass = isDecorated(QueryType, klass, key) ? loadDecoratorData(QueryType, klass, key).type : Reflect.getMetadata('design:type', klass.prototype, key)
       if (meta === undefined) { return }
       if (typeof meta !== 'object' || meta === null) { throw new BadRequestException(`${klass.name}#${key}#''不正确`) }
       const valueKey = `${alias}_${index}_value`;

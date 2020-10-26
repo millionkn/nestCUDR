@@ -1,34 +1,11 @@
 import { Injectable, Type } from "@nestjs/common";
 import * as dayjs from "dayjs";
-import { isDecorated, loadDecoratorData } from "src/utils/decorator";
 import { BaseEntity } from "src/utils/entity";
 import { getRepository } from "typeorm";
-import { DeepQuery, QueryTag } from "./decorators";
 import { jsonQuery, QueryOption, MetaContext } from "./jsonQuery/jsonQuery";
+import { entityTransformerTo } from "./tools";
 
 export class CudrException extends Error { }
-
-function transformerTo<T extends BaseEntity>(klass: Type<T>, entities: Array<T> | T) {
-  if (!(entities instanceof Array)) {
-    entities = [entities];
-  }
-  entities.forEach((entity: any) => {
-    if (typeof entity !== 'object' || entity === null) { return }
-    Object.keys(entity).forEach(key => {
-      if (isDecorated(DeepQuery, klass, key)) {
-        const data = loadDecoratorData(DeepQuery, klass, key)();
-        transformerTo(data.subKlass, entity[key]);
-      } else if (isDecorated(QueryTag, klass, key)) {
-        const type = loadDecoratorData(QueryTag, klass, key).type();
-        if (type === Date) {
-          entity[key] = dayjs(entity[key]).format('YYYY-MM-DD HH:mm:ss');
-        } else if (type === Number) {
-          entity[key] = Number.parseFloat(entity[key]);
-        }
-      }
-    });
-  })
-}
 
 @Injectable()
 export class CudrService {
@@ -71,7 +48,7 @@ export class CudrService {
         });
       qb.addOrderBy(`body.createDate`, 'DESC');
       const [selectResult, total] = await qb.getManyAndCount();
-      transformerTo(klass, selectResult);
+      entityTransformerTo(klass, selectResult);
       return {
         data: selectResult,
         total,

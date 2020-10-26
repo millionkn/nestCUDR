@@ -3,6 +3,7 @@ import { getMetadataArgsStorage } from 'typeorm';
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { getTagetKey } from "src/utils/getTargetKey";
 import { Type } from "@nestjs/common";
+import { ID } from "src/utils/entity";
 
 const savedNames: string[] = [];
 export const CudrEntity = createKlassDecorator(`CudrEntity`, (klass: Type<CudrBaseEntity>) => (
@@ -59,12 +60,16 @@ export const QueryLast = createKeyDecorator('QueryLast', (klass: Type<CudrBaseEn
   }
 });
 
-export const QueryTag = createKeyDecorator('QueryTag', (klass: Type<CudrBaseEntity>, key: string) => (
-  meta: {
-    type?: () => any,
-  },
-) => {
+export const QueryTransformer = createKeyDecorator(`Transformer`, () => (meta: {
+  toClient?: (value: any, entity: any) => any,
+  fromClient?: (value: any, entity: any) => any,
+}) => {
   return {
-    type: meta.type || (() => Reflect.getMetadata('design:type', klass.prototype, key)),
+    toClient: meta.toClient || ((value) => value),
+    fromClient: meta.fromClient || ((value) => value),
   }
 });
+
+export const QueryType = createKeyDecorator(`QueryType`, () => (meta: {
+  type: typeof ID,
+}) => meta);

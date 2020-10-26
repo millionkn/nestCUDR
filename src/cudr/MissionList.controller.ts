@@ -3,7 +3,7 @@ import { getConnection, getMetadataArgsStorage } from "typeorm";
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { CudrEventSubject } from "./transactionEvent";
 import { ID } from "src/utils/entity";
-import { loadClassByEntityName } from "./tools";
+import { loadClassByEntityName, entityTransformerFrom } from "./tools";
 import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery } from "./decorators";
 
@@ -29,6 +29,7 @@ export class MissionListController {
         const klass = loadClassByEntityName(mission.entityName);
         const eventSubject = CudrEventSubject(klass);
         if (mission.type === 'save') {
+          const entity: any = mission.entity;
           loadDecoratedKeys(DeepQuery, klass).filter((key) => {
             const arg = loadDecoratorData(DeepQuery, klass, key)().metaArg;
             if (arg.relationType === 'many-to-one') { return true }
@@ -43,14 +44,14 @@ export class MissionListController {
               metaArg: arg,
               subKlass,
             } = loadDecoratorData(DeepQuery, klass, key)();
-            if (!(arg.propertyName in mission.entity)) {
-              const entity: any = mission.entity;
+            if (!(arg.propertyName in entity)) {
               entity[arg.propertyName] = { id: stack.get(subKlass) };
             }
           });
-          const result = await manager.save(klass, mission.entity);
+          entityTransformerFrom(klass,entity)
+          const result = await manager.save(klass, entity);
           stack.set(klass, result.id);
-          if (mission.entity.id === undefined) {
+          if (entity.id === undefined) {
             eventFun.push(() => eventSubject.next({
               type: 'insert',
               entity: result,
