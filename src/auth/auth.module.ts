@@ -37,7 +37,7 @@ export class AuthModule {
             const authMap: AuthControllerInfoMap = new Map();
             loadDecoratedKlass(UserType).forEach((klass) => {
               const info = loadDecoratorData(UserType, klass);
-              authMap.set(info.userType, {
+              authMap.set(info.userType.toLowerCase(), {
                 klass,
                 accountKey: getTagetKey(info.accountRef),
                 usernameKey: getTagetKey(info.usernameRef),

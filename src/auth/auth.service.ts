@@ -15,7 +15,7 @@ export class AuthService {
     username: string,
     password: string,
   }):Promise<ID> {
-    const info = this.authMap.get(opt.userType);
+    const info = this.authMap.get(opt.userType.toLowerCase());
     if (!info) { throw new AuthError('usetType不存在'); }
     const entity = await getRepository(info.klass).findOne({
       relations: [
