@@ -41,6 +41,7 @@ export class AuthModule {
                 klass,
                 accountKey: getTagetKey(info.accountRef),
                 usernameKey: getTagetKey(info.usernameRef),
+                extraWhere: info.extraWhere || {},
               });
             });
             return authMap;

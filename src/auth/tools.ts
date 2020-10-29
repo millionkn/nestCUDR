@@ -16,6 +16,7 @@ export const AuthControllerMapSym = Symbol();
 export type AuthControllerInfoMap = Map<string, {
   accountKey: string,
   usernameKey: string,
+  extraWhere: { [k: string]: any }
   klass: Type<any>,
 }>
 
