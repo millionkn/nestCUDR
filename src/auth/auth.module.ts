@@ -6,7 +6,6 @@ import { AuthService } from './auth.service';
 import { AccountEntity } from './authEntities';
 import { UserType } from './decorators';
 import { AuthControllerInfoMap, AuthControllerMapSym } from './tools';
-import { getTagetKey } from 'src/utils/getTargetKey';
 import { AuthGateway } from './auth.gateway';
 
 @Module({
@@ -39,8 +38,8 @@ export class AuthModule {
               const info = loadDecoratorData(UserType, klass);
               authMap.set(info.userType.toLowerCase(), {
                 klass,
-                accountKey: getTagetKey(info.accountRef),
-                usernameKey: getTagetKey(info.usernameRef),
+                usernameKey: info.usernameKey,
+                accountKey: info.accountKey,
                 extraWhere: info.extraWhere || {},
               });
             });
