@@ -8,11 +8,19 @@ import { UserType } from "./auth/decorators"
 @Entity()
 @GlobalRepository()
 @CudrEntity()
-@UserType()
+@UserType({
+  userType: 'user',
+  accountRef: (obj: UserEntity) => obj.account,
+  usernameRef: (obj: UserEntity) => obj.username,
+})
 export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @Column()
   name!: string
-  @OneToOne(() => AccountEntity)
+  @Column({
+    unique: true,
+  })
+  username!: string;
+  @OneToOne(() => AccountEntity, {})
   @JoinColumn()
   account!: AccountEntity
   @DeepQuery()

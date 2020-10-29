@@ -1,40 +1,42 @@
-import { Body, Controller, ForbiddenException, Post, Session, Inject } from '@nestjs/common';
-import * as Auth from './Auth';
-import { CurrentUser } from './current-user.decorator';
-import { SocketAuthService } from './socket-auth.service';
+import { Controller, Inject, Post, Body, ForbiddenException, Session } from "@nestjs/common";
+import { AuthService } from "./auth.service";
+import { setSessionCurrentUser, CurrentUserData } from "./tools";
+import { AuthError } from "./errors";
+import { CurrentUser } from "./current-user.decorator";
 
 @Controller('api/auth')
 export class AuthController {
-  @Inject(SocketAuthService)
-  socketAuthService!: SocketAuthService;
+  @Inject(AuthService)
+  private authService!: AuthService;
+  
   @Post('login')
-  async login(@Body() body: any, @Session() session: Express.Session) {
-    let userId = await Auth.login(session, body)
-    if (userId === null) {
-      throw new ForbiddenException('登录失败:用户名或密码错误');
+  async login(
+    @Session() session: Express.Session,
+    @Body() body: {
+      userType: string,
+      username: string,
+      password: string,
+    }) {
+    try {
+      let userId = await this.authService.findId(body);
+      return setSessionCurrentUser(session, { userId });
+    } catch (e) {
+      if (e instanceof AuthError) {
+        throw new ForbiddenException(e.message);
+      } else {
+        throw e;
+      }
     }
-    return { userId };
   }
 
   @Post('currentUser')
-  async currentUser(@CurrentUser() user: any) {
-    return await user
+  async currentUser(@CurrentUser() user: CurrentUserData) {
+    return user;
   }
 
   @Post('logout')
   async logout(@Session() session: Express.Session) {
-    await Auth.logout(session);
+    session.destroy(() => { });
   }
-  @Post('hasRole')
-  async hasRole(@Session() session: Express.Session, @Body() roles: string[]) {
-    for await (const role of roles) {
-      const hasRole = await Auth.hasRole(session, role);
-      if (!hasRole) { return false; }
-    }
-    return true;
-  }
-  @Post(`socket`)
-  async socket(@Session() session: Express.Session, @Body() body: { token: number }) {
-    this.socketAuthService.bindSession(session, body);
-  }
+
 }
