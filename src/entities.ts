@@ -2,7 +2,7 @@ import { Entity, Column, OneToOne, JoinColumn, ManyToOne, OneToMany, ManyToMany,
 import { GlobalRepository } from "./repository/repository.module"
 import { AccountEntity } from "./auth/authEntities"
 import { CudrBaseEntity } from "./cudr/CudrBase.entity"
-import { DeepQuery, QueryLast, CudrEntity } from "./cudr/decorators"
+import { DeepQuery, QueryLast, CudrEntity, QueryTransformer } from "./cudr/decorators"
 import { UserType } from "./auth/decorators"
 
 @Entity()
@@ -20,6 +20,9 @@ export class UserEntity extends CudrBaseEntity<'UserEntity'> {
     unique: true,
   })
   username!: string;
+  @QueryTransformer({
+    fromClient: () => undefined,
+  })
   @OneToOne(() => AccountEntity, {})
   @JoinColumn()
   account!: AccountEntity
