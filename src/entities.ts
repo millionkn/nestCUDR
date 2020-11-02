@@ -3,18 +3,15 @@ import { GlobalRepository } from "./repository/repository.module"
 import { AccountEntity } from "./auth/authEntities"
 import { CudrBaseEntity } from "./cudr/CudrBase.entity"
 import { DeepQuery, QueryLast, CudrEntity, QueryTransformer } from "./cudr/decorators"
-import { UserType, UsernameRef, AccountRef } from "./auth/decorators"
+import { UserType, AccountRef } from "./auth/decorators"
 
 @Entity()
 @GlobalRepository()
 @CudrEntity()
-@UserType({
-  userType: 'user',
-})
+@UserType()
 export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @Column()
   name!: string
-  @UsernameRef()
   @Column()
   username!: string;
   @QueryTransformer({
