@@ -114,15 +114,15 @@ export class CudrService {
         } else {
           throw new CudrException(`无效的select:${sqlFunc}`);
         }
-        const ref = `${timeCont.alias}.${timeCont.key}`;
-        let str = ref;
+        const timeRef = `${timeCont.alias}.${timeCont.key}`;
+        let str = `${cont.alias}.${cont.key}`;
         const key = `select_${selectIndex}_time_${timeIndex}`;
         if (t.lessOrEqual) {
-          str = `if(${ref} <= :${key}_less,${str},${onFalse})`;
+          str = `if(${timeRef} <= :${key}_less,${str},${onFalse})`;
           qb.setParameter(`${key}_less`, dayjs(t.lessOrEqual).startOf('second').toDate());
         }
         if (t.moreOrEqual) {
-          str = `if(${ref} >= :${key}_more,${str},${onFalse})`;
+          str = `if(${timeRef} >= :${key}_more,${str},${onFalse})`;
           qb.setParameter(`${key}_more`, dayjs(t.moreOrEqual).endOf('second').toDate());
         }
         qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
