@@ -1,6 +1,5 @@
 import { Socket } from "socket.io";
 import { ID } from "src/utils/entity";
-import { AuthError } from "./errors";
 
 const socketData = new Map<string, any>();
 
@@ -28,8 +27,8 @@ export async function setLoginState(target: Socket | Express.Session, id: ID, da
   }
 }
 
-export async function getLoginState(target: Socket | Express.Session | undefined) {
-  let ret: { id: ID, data: any } | undefined;
+export function getLoginState(target: Socket | Express.Session | undefined) {
+  let ret: { id?: ID, data?: any } | undefined;
   if (target) {
     if ('cookie' in target) {
       ret = target.currentUserState;
@@ -39,6 +38,5 @@ export async function getLoginState(target: Socket | Express.Session | undefined
       throw new Error(`无效的登录对象`);
     }
   }
-  if (!ret) { throw new AuthError('尚未登录'); }
-  return ret;
+  return ret || {};
 }

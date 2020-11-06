@@ -1,7 +1,8 @@
 import { createKlassDecorator, createKeyDecorator, loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
-import { Type, Inject, createParamDecorator, ExecutionContext } from "@nestjs/common";
+import { Type, Inject, createParamDecorator, ExecutionContext, SetMetadata } from "@nestjs/common";
 import { Socket } from 'socket.io';
 import { getLoginState } from './tools';
+import { ID } from "src/utils/entity";
 
 export const UserType = createKlassDecorator(`UserType`, (klass) => () => {
   const accountRef = loadDecoratedKeys(AccountRef, klass);
@@ -43,7 +44,7 @@ export const CurrentUserData: () => ParameterDecorator = createParamDecorator(
     } else {
       throw `@${CurrentUserData.name} 尚未实现 ${contextType}`;
     }
-    return (await state).data;
+    return state.data;
   },
 );
 
@@ -60,6 +61,8 @@ export const CurrentUserID: () => ParameterDecorator = createParamDecorator(
     } else {
       throw `@${CurrentUserID.name} 尚未实现 ${contextType}`;
     }
-    return (await state).id;
+    return state.id;
   },
 );
+
+export const Needlogin = (fun: (data: any, id: ID) => (boolean | Promise<boolean>)) => SetMetadata('needLogin', fun);

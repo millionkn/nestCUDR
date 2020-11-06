@@ -1,8 +1,7 @@
-import { Controller, Post, Session, Body, ForbiddenException } from "@nestjs/common";
+import { Controller, Post, Session, Body } from "@nestjs/common";
 import { InjectAuthService } from "src/auth/decorators";
 import { UserEntity } from "src/entities";
 import { AuthService } from "src/auth/auth.service";
-import { AuthError } from "src/auth/errors";
 
 @Controller('api')
 export class BusinessController {
@@ -16,14 +15,6 @@ export class BusinessController {
       username: string,
       password: string,
     }) {
-    try {
-      return { id: await this.authService.login(session, body.password, { username: body.username }) };
-    } catch (e) {
-      if (e instanceof AuthError) {
-        throw new ForbiddenException(e.message);
-      } else {
-        throw e;
-      }
-    }
+    return { id: await this.authService.login(session, body.password, { username: body.username }) };
   }
 }

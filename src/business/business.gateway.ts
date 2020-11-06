@@ -3,7 +3,6 @@ import { AuthService } from 'src/auth/auth.service';
 import { UserEntity } from 'src/entities';
 import { InjectAuthService } from 'src/auth/decorators';
 import { Socket } from 'socket.io';
-import { AuthError } from 'src/auth/errors';
 
 @WebSocketGateway()
 export class BusinessGateway {
@@ -18,14 +17,6 @@ export class BusinessGateway {
       password: string,
     },
   ) {
-    try {
-      await this.authService.login(client, data.password, { username: data.username });
-    } catch (e) {
-      if (e instanceof AuthError) {
-        throw new WsException(e.message);
-      } else {
-        throw e;
-      }
-    }
+    await this.authService.login(client, data.password, { username: data.username });
   }
 }

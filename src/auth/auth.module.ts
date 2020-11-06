@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { AccountEntity } from './authEntities';
 
 @Module({
-  imports:[
+  imports: [
     TypeOrmModule.forFeature([
       AccountEntity,
     ])
@@ -38,8 +38,8 @@ export class AuthModule {
       providers: [
         ...authServiceProviders,
       ],
-      exports:[
-        ...authServiceProviders.map((p)=>p.provide),
+      exports: [
+        ...authServiceProviders.map((p) => p.provide),
       ],
     }
   }

@@ -1,12 +1,13 @@
 import { FindConditions, Repository } from "typeorm";
 import { AccountEntity } from "./authEntities";
-import { Type } from "@nestjs/common";
+import { Type, ForbiddenException } from "@nestjs/common";
 import { Md5 } from 'ts-md5';
 import { AuthError } from "./errors";
 import { ID } from "src/utils/entity";
 import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
 import { Socket } from "socket.io";
 import { setLoginState } from "./tools";
+import { WsException } from "@nestjs/websockets";
 
 export class AuthService<T extends { id: ID }> {
   constructor(
@@ -51,7 +52,22 @@ export class AuthService<T extends { id: ID }> {
     where: FindConditions<T>,
     dataOrFun?: Data | ((id: T['id']) => (Promise<Data> | Data)),
   ): Promise<T['id']> {
-    const id = await this.findId(password, where);
+    let id: ID;
+    try {
+      id = await this.findId(password, where);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        if ('client' in target) {
+          throw new WsException(e.message);
+        } else if ('cookie' in target) {
+          throw new ForbiddenException(e.message);
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
     await setLoginState(target, id, dataOrFun);
     return id;
   }
