@@ -1,9 +1,8 @@
 import { Controller, Post, Body, Type, BadRequestException } from "@nestjs/common";
-import { getConnection, getMetadataArgsStorage } from "typeorm";
+import { getConnection, getMetadataArgsStorage, EntityManager } from "typeorm";
 import { CudrBaseEntity } from "./CudrBase.entity";
-import { CudrEventSubject } from "./transactionEvent";
 import { ID } from "src/utils/entity";
-import { loadClassByEntityName, entityTransformerFrom } from "./tools";
+import { loadClassByEntityName, entityTransformerFrom, getCommitEvent } from "./tools";
 import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery } from "./decorators";
 
@@ -22,12 +21,12 @@ export class MissionListController {
   @Post('transaction')
   async transaction(@Body() missionList: Array<SaveMission | DeleteMission>) {
     if (!(missionList instanceof Array)) { missionList = [missionList]; }
-    const eventFun = new Array<() => void>();
+    let usingManager: EntityManager;
     await getConnection().transaction(async (manager) => {
+      usingManager = manager;
       const stack = new Map<Type<CudrBaseEntity<any>>, ID<any>>();
       for await (const mission of missionList) {
         const klass = loadClassByEntityName(mission.entityName);
-        const eventSubject = CudrEventSubject(klass);
         if (mission.type === 'save') {
           const entity: any = mission.entity;
           loadDecoratedKeys(DeepQuery, klass).filter((key) => {
@@ -48,30 +47,21 @@ export class MissionListController {
               entity[arg.propertyName] = { id: stack.get(subKlass) };
             }
           });
-          entityTransformerFrom(klass,entity)
+          entityTransformerFrom(klass, entity)
           const result = await manager.save(klass, entity);
           stack.set(klass, result.id);
-          if (entity.id === undefined) {
-            eventFun.push(() => eventSubject.next({
-              type: 'insert',
-              entity: result,
-            }));
-          }
         } else if (mission.type === 'delete') {
           const result = await manager.findByIds(klass, mission.ids, { loadRelationIds: true });
           await manager.delete(klass, mission.ids);
-          result.forEach((entity) => {
-            eventFun.push(() => eventSubject.next({
-              type: 'delete',
-              entity
-            }));
-          });
         } else {
           // @ts-ignore
           throw new BadRequestException(`未知任务类型:${mission.type}`)
         }
       }
+    }).then(() => {
+      getCommitEvent(usingManager).next(null);
+    }).finally(() => {
+      getCommitEvent(usingManager).complete();
     });
-    eventFun.forEach((fun) => fun());
   }
 }

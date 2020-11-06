@@ -2,6 +2,8 @@ import { loadDecoratedKlass, loadDecoratorData, isDecorated } from "src/utils/de
 import { CudrEntity, DeepQuery, QueryTransformer } from "./decorators";
 import { Type } from "@nestjs/common";
 import { BaseEntity } from "src/utils/entity";
+import { ReplaySubject } from "rxjs";
+import { EntityManager } from "typeorm";
 
 export function loadClassByEntityName(name: string): Type<BaseEntity> {
   const klass = loadDecoratedKlass(CudrEntity).find(klass => {
@@ -46,4 +48,11 @@ export function entityTransformerFrom<T extends BaseEntity>(klass: Type<T>, enti
       }
     });
   })
+}
+
+const commitEventSym = Symbol();
+export function getCommitEvent(manager: EntityManager): ReplaySubject<null> {
+  const m: any = manager;
+  m[commitEventSym] = m[commitEventSym] || new ReplaySubject<null>(1);
+  return m[commitEventSym];
 }
