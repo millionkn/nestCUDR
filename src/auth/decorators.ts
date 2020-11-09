@@ -65,4 +65,4 @@ export const CurrentUserID: () => ParameterDecorator = createParamDecorator(
   },
 );
 
-export const Needlogin = (fun: (data: any, id: ID) => (boolean | Promise<boolean>)) => SetMetadata('needLogin', fun);
+export const NeedLogin = (fun: (data: any, id: ID) => (boolean | Promise<boolean>)) => SetMetadata('needLogin', fun);

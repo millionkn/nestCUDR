@@ -1,10 +1,10 @@
 import { Controller, Post, Session } from "@nestjs/common";
 import { ID } from "src/utils/entity";
-import { CurrentUserID, Needlogin } from "./decorators";
+import { CurrentUserID, NeedLogin } from "./decorators";
 
 @Controller('api/auth')
 export class AuthController {
-  @Needlogin(() => true)
+  @NeedLogin(() => true)
   @Post('currentUser')
   async currentUser(@CurrentUserID() id: ID) {
     return { id };
