@@ -17,6 +17,8 @@ export class BusinessGateway {
       password: string,
     },
   ) {
-    await this.authService.login(client, data.password, { username: data.username });
+    return {
+      id: await this.authService.login(client, data.password, { username: data.username }),
+    }
   }
 }
