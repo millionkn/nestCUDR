@@ -12,7 +12,7 @@ export type QueryOption<T extends CudrBaseEntity<any>, K = any> = {
   : T[key] extends CudrBaseEntity<any> ? QueryOption<T[key], K> & { ''?: { ''?: K, isNull?: boolean } }
   : T[key] extends Array<infer X> ? X extends CudrBaseEntity<any> ? QueryOption<X, K> & { ''?: { ''?: K, isEmpty?: boolean } } : never
   : T[key] extends Date ? { ''?: { ''?: K, lessOrEqual?: string, moreOrEqual?: string } }
-  : T[key] extends string ? { ''?: { ''?: K, like?: string, equal?: string, in?: string[] } }
+  : T[key] extends string ? { ''?: { ''?: K, like?: string[] | string, equal?: string, in?: string[] } }
   : T[key] extends number ? { ''?: { ''?: K, lessOrEqual?: number, moreOrEqual?: number } }
   : T[key] extends boolean ? { ''?: { ''?: K, equal: boolean } }
   : never
@@ -125,6 +125,9 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       } else if (subKlass === String) {
         if (typeof meta.like === 'string') {
           whereFun((qb) => qb.andWhere(`${alias}.${key} like :${valueKey}`, { [valueKey]: `%${meta.like}%` }));
+        } else if (meta.like instanceof Array && meta.like.length > 0) {
+          const likes:any[] = meta.like;
+          whereFun((qb) => likes.forEach((str: string, i: number) => qb.andWhere(`${alias}.${key} like :${valueKey}_index_${i}`, { [`${valueKey}_index_${i}`]: `%${str}%` })));
         } else if (meta.in instanceof Array) {
           whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
         } else if (typeof meta.equal === 'string') {
