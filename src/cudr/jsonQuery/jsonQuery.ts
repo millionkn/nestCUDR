@@ -116,7 +116,11 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       const valueKey = `${alias}_${index}_value`;
       if (subKlass === ID) {
         if (meta.in instanceof Array) {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
+          if (meta.in.length === 0) {
+            whereFun((qb) => qb.andWhere(`1=2`));
+          } else {
+            whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
+          }
         }
       } else if (subKlass === Boolean) {
         if (typeof meta.equal === 'boolean') {
@@ -126,10 +130,14 @@ function buildQuery<T extends CudrBaseEntity<any>>(
         if (typeof meta.like === 'string') {
           whereFun((qb) => qb.andWhere(`${alias}.${key} like :${valueKey}`, { [valueKey]: `%${meta.like}%` }));
         } else if (meta.like instanceof Array && meta.like.length > 0) {
-          const likes:any[] = meta.like;
+          const likes: any[] = meta.like;
           whereFun((qb) => likes.forEach((str: string, i: number) => qb.andWhere(`${alias}.${key} like :${valueKey}_index_${i}`, { [`${valueKey}_index_${i}`]: `%${str}%` })));
         } else if (meta.in instanceof Array) {
-          whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
+          if (meta.in.length === 0) {
+            whereFun((qb) => qb.andWhere(`1=2`));
+          } else {
+            whereFun((qb) => qb.andWhere(`${alias}.${key} in (:...${valueKey})`, { [valueKey]: meta.in }));
+          }
         } else if (typeof meta.equal === 'string') {
           whereFun((qb) => qb.andWhere(`${alias}.${key} = :${valueKey}`, { [valueKey]: meta.equal }));
         }
