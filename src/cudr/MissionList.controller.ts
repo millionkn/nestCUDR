@@ -78,8 +78,6 @@ type MissionExtra = {
 function setMissionExtra(manager: EntityManager, extra: MissionExtra) {
   (manager as any)[missionListExtraSym] = extra;
 }
-export function getMissionExtra(event: { manager: EntityManager }): MissionExtra {
-  const ret = (event.manager as any)[missionListExtraSym];
-  if (ret) { throw new Error('不是通过missionList'); }
-  return ret;
+export function getMissionExtra(event: { manager: EntityManager }): null | MissionExtra {
+  return (event.manager as any)[missionListExtraSym] || null;
 }
