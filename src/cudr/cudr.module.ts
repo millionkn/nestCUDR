@@ -4,6 +4,7 @@ import { MissionListController } from './MissionList.controller';
 import { loadDecoratedKlass, loadDecoratorData } from 'src/utils/decorator';
 import { CudrEntity } from './decorators';
 import { CudrService, CudrException } from './cudr.service';
+import { getManager } from 'typeorm';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ export class CudrModule {
             @Post('findEntityList')
             async findEntityList(@Body() body: any) {
               try {
-                return await this.service.findEntityList(klass, body);
+                return await this.service.findEntityList(getManager(), klass, body);
               } catch (e) {
                 if (e instanceof CudrException) {
                   throw new BadRequestException(e.message)
@@ -42,7 +43,7 @@ export class CudrModule {
             @Post('statistic')
             async statistic(@Body() body: any) {
               try {
-                return await this.service.statistic(klass, body);
+                return await this.service.statistic(getManager(), klass, body);
               } catch (e) {
                 if (e instanceof CudrException) {
                   throw new BadRequestException(e.message)

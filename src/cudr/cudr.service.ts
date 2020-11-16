@@ -1,7 +1,7 @@
 import { Injectable, Type } from "@nestjs/common";
 import * as dayjs from "dayjs";
 import { BaseEntity } from "src/utils/entity";
-import { getRepository } from "typeorm";
+import { EntityManager } from "typeorm";
 import { jsonQuery, QueryOption, MetaContext } from "./jsonQuery/jsonQuery";
 import { entityTransformerTo } from "./tools";
 
@@ -9,11 +9,15 @@ export class CudrException extends Error { }
 
 @Injectable()
 export class CudrService {
-  async findEntityList<T extends BaseEntity>(klass: Type<T>, body: {
-    where: QueryOption<T, { sortIndex: number }>,
-    pageIndex?: number,
-    pageSize?: number,
-  }) {
+  async findEntityList<T extends BaseEntity>(
+    manager: EntityManager,
+    klass: Type<T>,
+    body: {
+      where: QueryOption<T, { sortIndex: number }>,
+      pageIndex?: number,
+      pageSize?: number,
+    },
+  ) {
     if (false
       || typeof body !== 'object'
       || typeof body.where !== 'object'
@@ -21,7 +25,7 @@ export class CudrService {
     ) {
       throw new CudrException('缺少where')
     }
-    const qb = getRepository(klass).createQueryBuilder(`body`);
+    const qb = manager.getRepository(klass).createQueryBuilder(`body`);
     const contextArr = jsonQuery(qb, `body`, klass, body.where)
       .filter((context) => typeof context.userMeta.sortIndex === 'number');
     if (undefined !== body.pageIndex) {
@@ -55,13 +59,17 @@ export class CudrService {
       };
     }
   }
-  async statistic<T extends BaseEntity>(klass: Type<T>, body: {
-    where: QueryOption<T,
-      | { alias: string }
-      | { time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }
-      | { alias: string, select: 'count' | 'sum' }
-    >,
-  }) {
+  async statistic<T extends BaseEntity>(
+    manager: EntityManager,
+    klass: Type<T>,
+    body: {
+      where: QueryOption<T,
+        | { alias: string }
+        | { time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }
+        | { alias: string, select: 'count' | 'sum' }
+      >,
+    },
+  ) {
     if (false
       || typeof body !== 'object'
       || typeof body.where !== 'object'
@@ -69,7 +77,7 @@ export class CudrService {
     ) {
       throw new CudrException('缺少where')
     }
-    const qb = getRepository(klass).createQueryBuilder(`body`);
+    const qb = manager.getRepository(klass).createQueryBuilder(`body`);
     const contextArr = jsonQuery(qb, `body`, klass, body.where);
     qb.select('1');
     let timeCont: MetaContext<{ time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }> = contextArr.filter((cont) => 'time' in cont.userMeta)[0] as any;
