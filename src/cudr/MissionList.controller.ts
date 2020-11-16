@@ -2,9 +2,10 @@ import { Controller, Post, Body, Type, BadRequestException } from "@nestjs/commo
 import { getConnection, getMetadataArgsStorage, EntityManager } from "typeorm";
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { ID } from "src/utils/entity";
-import { loadClassByEntityName, entityTransformerFrom, getCommitEvent } from "./tools";
+import { loadClassByEntityName, entityTransformerFrom } from "./tools";
 import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery } from "./decorators";
+import { ReplaySubject, Observable } from "rxjs";
 
 type SaveMission = {
   type: 'save',
@@ -21,12 +22,15 @@ export class MissionListController {
   @Post('transaction')
   async transaction(@Body() missionList: Array<SaveMission | DeleteMission>) {
     if (!(missionList instanceof Array)) { missionList = [missionList]; }
-    let usingManager: EntityManager;
+    const commitEvent = new ReplaySubject<void>(1);
     await getConnection().transaction(async (manager) => {
-      usingManager = manager;
       const stack = new Map<Type<CudrBaseEntity<any>>, ID<any>>();
       for await (const mission of missionList) {
         const klass = loadClassByEntityName(mission.entityName);
+        setMissionExtra(manager, {
+          klass,
+          commit$: commitEvent.asObservable(),
+        });
         if (mission.type === 'save') {
           const entity: any = mission.entity;
           loadDecoratedKeys(DeepQuery, klass).filter((key) => {
@@ -59,9 +63,23 @@ export class MissionListController {
         }
       }
     }).then(() => {
-      getCommitEvent(usingManager).next(null);
+      commitEvent.next();
     }).finally(() => {
-      getCommitEvent(usingManager).complete();
+      commitEvent.complete();
     });
   }
+}
+
+const missionListExtraSym = Symbol();
+type MissionExtra = {
+  klass: Type<any>,
+  commit$: Observable<void>,
+}
+function setMissionExtra(manager: EntityManager, extra: MissionExtra) {
+  (manager as any)[missionListExtraSym] = extra;
+}
+export function getMissionExtra(event: { manager: EntityManager }): MissionExtra {
+  const ret = (event.manager as any)[missionListExtraSym];
+  if (ret) { throw new Error('不是通过missionList'); }
+  return ret;
 }
