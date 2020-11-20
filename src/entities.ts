@@ -47,7 +47,7 @@ export class TGroupEntity extends CudrBaseEntity<'TGroupEntity'> {
 export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity'> {
   @DeepQuery()
   @ManyToOne(() => UserEntity)
-  user!: UserEntity
+  user!: UserEntity | null
   @OneToOne(() => RequirementLogEntity, (obj) => obj.requirement)
   @QueryLast()
   @DeepQuery()

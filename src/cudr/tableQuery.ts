@@ -3,76 +3,117 @@ import { Type } from "@nestjs/common";
 import { ID } from "src/utils/entity";
 import { UserRequirementEntity } from "src/entities";
 
-const sym = Symbol();
+const refSym = Symbol();
 
-type Ref<T, isCudrArr extends boolean> = { [sym]: isCudrArr extends true ? T[] : T }
+type Cover<T1, cudrNull extends boolean, cudrArray extends boolean,
+  T2 = cudrArray extends true ? T1[] : T1,
+  T3 = cudrNull extends true ? T2 | null : T2,
+  > = T3
+type Ref<T, cudrNull extends boolean, cudrArray extends boolean> = {
+  [refSym]: Cover<T, cudrNull, cudrArray>
+}
 
-type Wrapper<T extends CudrBaseEntity, isCudrArr extends boolean> = {
+type Wrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray extends boolean> = {
   [key in keyof T]
   : T[key] extends Function ? never
-  : T[key] extends CudrBaseEntity ? Wrapper<T[key], isCudrArr>
-  : T[key] extends Array<infer X> ? X extends CudrBaseEntity ? Wrapper<X, true> : Ref<T[key], false>
-  : Ref<T[key], isCudrArr>
+  : T[key] extends CudrBaseEntity ? Wrapper<T[key], cudrNull, cudrArray>
+  : T[key] extends CudrBaseEntity | null ? T[key] extends null | infer X ? X extends CudrBaseEntity ? Wrapper<X, true, cudrArray> : never : never
+  : T[key] extends Array<infer X> ? X extends CudrBaseEntity ? Wrapper<X, cudrNull, true> : Ref<T[key], cudrNull, true>
+  : Ref<T[key], cudrNull, cudrArray>
 }
 
 type Filter<T> = T extends ID ? { in: T[] }
-  : T extends Date ? { lessOrEqual?: string, moreOrEqual?: string }
-  : T extends number ? { lessOrEqual?: number, moreOrEqual?: number }
+  : T extends Date ? { lessOrEqual: string } | { moreOrEqual: string }
+  : T extends number ? { lessOrEqual: number } | { moreOrEqual: number }
   : T extends string ? { like: string[] } | { like: string } | { equal: string, } | { in: string[] }
   : T extends boolean ? { equal: boolean }
-  : never
+  : 123
+const loadSym = Symbol();
+interface loadAble<T, cudrNull extends boolean, cudrArray extends boolean> {
+  [loadSym]: Cover<T, cudrNull, cudrArray>;
+}
+type WrapperInput<E extends CudrBaseEntity> = Wrapper<E, false, false>
 
-
-interface loadAble<T> {
-  [sym]: T
-}
-interface RefHandler<T> extends loadAble<T> {
-  filter(filter: Filter<T>): this;
-  sortIndex(num: number): this;
-  isNull(value: true): loadAble<null>;
-  isNull(value: false): RefHandler<T extends null | infer X ? X : T>;
-}
-interface WrapperHandler<T extends CudrBaseEntity> extends loadAble<T> {
-  isNull(value: true): loadAble<null>;
-  isNull(value: false): WrapperHandler<T extends null | infer X ? X : T>;
-}
-interface ArrHandler<T> extends loadAble<T> {
-  isEmpty(value: boolean): loadAble<T[]>;
-}
-interface RefArrHandler<T> extends loadAble<T[]> {
-  filter(filter: Filter<T>): this;
-  sortIndex(num: number): this;
-  isNull(value: true): loadAble<null>;
-  isNull(value: false): RefArrHandler<T extends null | infer X ? X : T>;
-  asArray(): ArrHandler<T>
-}
-interface WrapperArrHandler<T extends CudrBaseEntity> extends loadAble<T[]> {
-  isNull(value: true): loadAble<null>;
-  isNull(value: false): WrapperArrHandler<T extends null | infer X ? X : T>;
-  asArray(): ArrHandler<T>
-}
-
-type TableQueryBody<E extends CudrBaseEntity> = {
+type TableQueryBodyOption<E extends CudrBaseEntity> = {
   [key: string]: (funs: {
-    ref: <T, isCudrArr extends boolean>(path: (entity: Wrapper<E, false>) => T extends CudrBaseEntity ? Wrapper<T, isCudrArr> : Ref<T, isCudrArr>) =>
-      T extends CudrBaseEntity ?
-      isCudrArr extends true ? WrapperArrHandler<T> : WrapperHandler<T> :
-      isCudrArr extends true ? RefArrHandler<T> : RefHandler<T>,
-    count: (path: (entity: Wrapper<E, false>) => Wrapper<CudrBaseEntity, true> | Ref<string, true> | Ref<ID, true>) => RefHandler<number>,
-    sum: (path: (entity: Wrapper<E, false>) => Ref<number, true>) => RefHandler<number>,
-    max: (path: (entity: Wrapper<E, false>) => Ref<number, true>) => RefHandler<number>,
-    min: (path: (entity: Wrapper<E, false>) => Ref<number, true>) => RefHandler<number>,
-    arv: (path: (entity: Wrapper<E, false>) => Ref<number, true>) => RefHandler<number>,
-  }) => loadAble<any>
+    path: (
+      <T, array extends boolean>(
+        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, false, array> : Ref<T, false, array>,
+        defaultValue: void,
+      ) => (loadAble<T, false, array>)
+    ) & (
+      <T, array extends boolean>(
+        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, array> : Ref<T, true, array>,
+        defaultValue: T | null,
+      ) => (loadAble<T, false, array>)
+    );
+    count: (
+      (
+        path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, false, true> | Ref<string, false, true> | Ref<ID, false, true>,
+      ) => (loadAble<number, false, false>)
+    ) & (
+      <T>(
+        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, true> : Ref<T, true, true>,
+        defaultValue: T | null,
+      ) => (loadAble<number, false, false>)
+    );
+    sum: (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
+      ) => (loadAble<number, false, false>)
+    ) & (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
+        defaultValue: number | null,
+      ) => (loadAble<number, false, false>)
+    );
+    max: (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
+      ) => (loadAble<number, false, false>)
+    ) & (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
+        defaultValue: number | null,
+      ) => (loadAble<number, false, false>)
+    );
+    min: (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
+      ) => (loadAble<number, false, false>)
+    ) & (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
+        defaultValue: number | null,
+      ) => (loadAble<number, false, false>)
+    );
+    arv: (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
+      ) => (loadAble<number, false, false>)
+    ) & (
+      (
+        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
+        defaultValue: number | null,
+      ) => (loadAble<number, false, false>)
+    ),
+  }) => loadAble<any, false, any>
 }
 
+type TableQueryBodyInput<E extends CudrBaseEntity,B extends TableQueryBodyOption<E>> = {
+  [key in keyof B]: ReturnType<B[key]>
+}
+interface TableQueryBuilder<E extends CudrBaseEntity,B extends TableQueryBodyOption<any>> {
+  filter: <T,Path extends (body: TableQueryBodyInput<E,B>) => loadAble<T, any, any>>(path: Path,filter:Filter<T>) => T
+}
 
-export function tableQuery<E extends CudrBaseEntity, T extends TableQueryBody<E>>(klass: Type<E>, body: T): {
-  [key in keyof T]: ReturnType<T[key]> extends loadAble<infer X> ? X : never
-} {
+export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E,B> {
   throw new Error();
 }
 
+function x<T>(fun:()=>T,a:T):T{throw new Error()}
+
+
 tableQuery(UserRequirementEntity, {
-  username: ({ ref }) => ref((e) => e.user.requirements.user.name).isNull(false).filter({ like: '' }).asArray().isEmpty(false)
-}).username
+  username: ({ path }) => path((e) => e.lastLog.name),
+}).filter((r) => r.username,{like:''})
