@@ -23,97 +23,89 @@ type Wrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray exten
 }
 
 type Filter<T> = T extends ID ? { in: T[] }
-  : T extends Date ? { lessOrEqual: string } | { moreOrEqual: string }
+  : T extends Date ? { lessOrEqual: Date } | { moreOrEqual: Date }
   : T extends number ? { lessOrEqual: number } | { moreOrEqual: number }
   : T extends string ? { like: string[] } | { like: string } | { equal: string, } | { in: string[] }
   : T extends boolean ? { equal: boolean }
-  : 123
+  : T extends null | undefined | infer X ? X extends CudrBaseEntity ? { in: X['id'][] } : never
+  : never
 const loadSym = Symbol();
 interface loadAble<T, cudrNull extends boolean, cudrArray extends boolean> {
   [loadSym]: Cover<T, cudrNull, cudrArray>;
 }
 type WrapperInput<E extends CudrBaseEntity> = Wrapper<E, false, false>
 
-type TableQueryBodyOption<E extends CudrBaseEntity> = {
-  [key: string]: (funs: {
-    path: (
-      <T, array extends boolean>(
-        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, false, array> : Ref<T, false, array>,
-        defaultValue: void,
-      ) => (loadAble<T, false, array>)
-    ) & (
-      <T, array extends boolean>(
-        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, array> : Ref<T, true, array>,
-        defaultValue: T | null,
-      ) => (loadAble<T, false, array>)
-    );
-    count: (
-      (
-        path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, false, true> | Ref<string, false, true> | Ref<ID, false, true>,
-      ) => (loadAble<number, false, false>)
-    ) & (
-      <T>(
-        path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, true> : Ref<T, true, true>,
-        defaultValue: T | null,
-      ) => (loadAble<number, false, false>)
-    );
-    sum: (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
-      ) => (loadAble<number, false, false>)
-    ) & (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
-        defaultValue: number | null,
-      ) => (loadAble<number, false, false>)
-    );
-    max: (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
-      ) => (loadAble<number, false, false>)
-    ) & (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
-        defaultValue: number | null,
-      ) => (loadAble<number, false, false>)
-    );
-    min: (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
-      ) => (loadAble<number, false, false>)
-    ) & (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
-        defaultValue: number | null,
-      ) => (loadAble<number, false, false>)
-    );
-    arv: (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, false, true>,
-      ) => (loadAble<number, false, false>)
-    ) & (
-      (
-        path: (entity: WrapperInput<E>) => Ref<number, true, true>,
-        defaultValue: number | null,
-      ) => (loadAble<number, false, false>)
-    ),
-  }) => loadAble<any, false, any>
+interface QueryFuns<E extends CudrBaseEntity> {
+  path<T, array extends boolean>(
+    path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, false, array> : Ref<T, false, array>,
+  ): loadAble<T, false, array>
+  path<T, array extends boolean, ET extends T>(
+    path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, array> : Ref<T, true, array>,
+    defaultValue: ET | null,
+  ): loadAble<T, false, array>
+  count(
+    path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, false, true> | Ref<string, false, true> | Ref<ID, false, true>,
+  ): loadAble<number, false, false>
+  count<T, ET extends T>(
+    path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, true> : Ref<T, true, true>,
+    defaultValue: ET | null,
+  ): loadAble<number, false, false>
+  max(
+    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+  ): loadAble<number, false, false>
+  min(
+    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+  ): loadAble<number, false, false>
+  arv(
+    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+  ): loadAble<number, false, false>
 }
 
-type TableQueryBodyInput<E extends CudrBaseEntity,B extends TableQueryBodyOption<E>> = {
+type TableQueryBodyOption<E extends CudrBaseEntity> = {
+  [key: string]: (funs: QueryFuns<E>) => loadAble<any, false, any>
+}
+
+type TableQueryBodyInput<B extends TableQueryBodyOption<any>> = {
   [key in keyof B]: ReturnType<B[key]>
 }
-interface TableQueryBuilder<E extends CudrBaseEntity,B extends TableQueryBodyOption<any>> {
-  filter: <T,Path extends (body: TableQueryBodyInput<E,B>) => loadAble<T, any, any>>(path: Path,filter:Filter<T>) => T
+type Simple<T extends CudrBaseEntity> = {
+  [key in {
+    [key in keyof T]: T[key] extends null | undefined | infer X ?
+    X extends CudrBaseEntity ? never : key
+    : never
+  }[keyof T]]: T[key]
+}
+type QueryResult<B extends TableQueryBodyOption<any>> = {
+  [key in keyof B]: ReturnType<B[key]> extends loadAble<infer T, infer isNull, infer isArray> ?
+  T extends CudrBaseEntity ? isArray extends true ? Array<Simple<T> | (isNull extends true ? null : never)> : (Simple<T> | (isNull extends true ? null : never)) : Cover<T, isNull, isArray>
+  : never
+}
+interface TableQueryBuilder<B extends TableQueryBodyOption<any>> {
+  filter: <T extends loadAble<any, false, false>>(
+    path: (body: TableQueryBodyInput<B>) => T,
+    filter: T extends loadAble<infer X, false, false> ? Filter<X> : never,
+  ) => this
+  filterArray: <T extends loadAble<any, false, true>>(
+    path: (body: TableQueryBodyInput<B>) => T,
+    filter: T extends loadAble<infer X, false, true> ? Filter<X> : never,
+    allowEmpty?: boolean | undefined,
+  ) => this
+  sort: (path: (body: TableQueryBodyInput<B>) => loadAble<any, any, true>, mode: -1 | 0 | 1) => this
+  query: (page?: {
+    pageIndex: number,
+    pageSize: number,
+  }) => Promise<QueryResult<B>[]>
 }
 
-export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E,B> {
+export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<B> {
   throw new Error();
 }
 
-function x<T>(fun:()=>T,a:T):T{throw new Error()}
 
-
-tableQuery(UserRequirementEntity, {
-  username: ({ path }) => path((e) => e.lastLog.name),
-}).filter((r) => r.username,{like:''})
+const x = tableQuery(UserRequirementEntity, {
+  username: ({ path }) => path((e) => e.lastLog),
+})
+  .filter((r) => r.username, { in: [] })
+  .query().then((arr) => {
+    arr[0].username
+  })
