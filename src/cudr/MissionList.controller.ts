@@ -5,7 +5,6 @@ import { ID } from "src/utils/entity";
 import { loadClassByEntityName, entityTransformerFrom } from "./tools";
 import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery } from "./decorators";
-import { ReplaySubject, Observable } from "rxjs";
 
 type SaveMission = {
   type: 'save',
@@ -22,15 +21,10 @@ export class MissionListController {
   @Post('transaction')
   async transaction(@Body() missionList: Array<SaveMission | DeleteMission>) {
     if (!(missionList instanceof Array)) { missionList = [missionList]; }
-    const commitEvent = new ReplaySubject<void>(1);
     await getConnection().transaction(async (manager) => {
       const stack = new Map<Type<CudrBaseEntity<any>>, ID<any>>();
       for await (const mission of missionList) {
         const klass = loadClassByEntityName(mission.entityName);
-        setMissionExtra(manager, {
-          klass,
-          commit$: commitEvent.asObservable(),
-        });
         if (mission.type === 'save') {
           const entity: any = mission.entity;
           loadDecoratedKeys(DeepQuery, klass).filter((key) => {
@@ -62,22 +56,6 @@ export class MissionListController {
           throw new BadRequestException(`未知任务类型:${mission.type}`)
         }
       }
-    }).then(() => {
-      commitEvent.next();
-    }).finally(() => {
-      commitEvent.complete();
     });
   }
-}
-
-const missionListExtraSym = Symbol();
-type MissionExtra = {
-  klass: Type<any>,
-  commit$: Observable<void>,
-}
-function setMissionExtra(manager: EntityManager, extra: MissionExtra) {
-  (manager as any)[missionListExtraSym] = extra;
-}
-export function getMissionExtra(event: { manager: EntityManager }): null | MissionExtra {
-  return (event.manager as any)[missionListExtraSym] || null;
 }

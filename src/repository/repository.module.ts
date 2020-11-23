@@ -1,5 +1,7 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Module, Type } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DiscoveryModule } from '@nestjs/core';
+import { InsertCommitEmitterService } from './InsertCommitEmitter.service';
 
 const klasses: any[] = []
 
@@ -31,6 +33,10 @@ export function GlobalRepository(): ClassDecorator {
         'query',
       ]
     }),
+    DiscoveryModule,
+  ],
+  providers:[
+    InsertCommitEmitterService,
   ],
 })
 export class RepositoryModule {
