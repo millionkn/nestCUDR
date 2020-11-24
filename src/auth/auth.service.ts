@@ -1,4 +1,4 @@
-import { FindConditions, Repository } from "typeorm";
+import { FindConditions, Repository, EntityManager } from "typeorm";
 import { AccountEntity } from "./authEntities";
 import { Type, ForbiddenException } from "@nestjs/common";
 import { Md5 } from 'ts-md5';
@@ -31,20 +31,18 @@ export class AuthService<T extends { id: ID }> {
     if (md5Result !== account.password) { throw new AuthError(`用户名或密码错误`); }
     return entity.id;
   }
-  async register(entity: QueryDeepPartialEntity<T>, password: string): Promise<T['id']> {
-    return await this.repository.manager.transaction(async (manager) => {
-      const salt = `${Math.random()}`;
-      const md5Result = Md5.hashStr(`${salt}${password}`) as string;
-      const accountInsertResult = await manager.insert(AccountEntity, {
-        password: md5Result,
-        salt,
-      });
-      const entityInsertResult = await manager.insert(this.klass, {
-        ...entity,
-        [this.info.accountKey]: accountInsertResult.identifiers[0],
-      })
-      return entityInsertResult.identifiers[0].id;
+  async register(manager: EntityManager, entity: QueryDeepPartialEntity<T>, password: string): Promise<T['id']> {
+    const salt = `${Math.random()}`;
+    const md5Result = Md5.hashStr(`${salt}${password}`) as string;
+    const accountInsertResult = await manager.insert(AccountEntity, {
+      password: md5Result,
+      salt,
+    });
+    const entityInsertResult = await manager.insert(this.klass, {
+      ...entity,
+      [this.info.accountKey]: accountInsertResult.identifiers[0],
     })
+    return entityInsertResult.identifiers[0].id;
   }
   async login<Data extends object>(
     target: Socket | Express.Session,
