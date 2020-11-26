@@ -1,7 +1,6 @@
-import { loadDecoratorData, createKlassDecorator, createKeyDecorator } from "src/utils/decorator";
+import { createKlassDecorator, createKeyDecorator } from "src/utils/decorator";
 import { getMetadataArgsStorage } from 'typeorm';
 import { CudrBaseEntity } from "./CudrBase.entity";
-import { getTagetKey } from "src/utils/getTargetKey";
 import { Type } from "@nestjs/common";
 import { ID } from "src/utils/entity";
 
@@ -43,20 +42,6 @@ export const DeepQuery = createKeyDecorator('DeepQuery', (klass: Type<CudrBaseEn
       subKlass: type() as Type<CudrBaseEntity>,
       metaArg,
     };
-  }
-});
-
-export const QueryLast = createKeyDecorator('QueryLast', (klass: Type<CudrBaseEntity>, key: string) => (
-) => () => {
-  const { metaArg } = loadDecoratorData(DeepQuery, klass, key)();
-  if (metaArg.relationType !== 'one-to-one') { throw new Error(`${klass.name}#${key}必须是一对一关系`) }
-  const otherSide = metaArg.inverseSideProperty;
-  if (typeof otherSide === 'function') {
-    return { otherSide: getTagetKey(otherSide) }
-  } else if (typeof otherSide === 'string') {
-    return { otherSide };
-  } else {
-    throw new Error(`必须指定另一侧`);
   }
 });
 

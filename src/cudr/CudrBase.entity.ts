@@ -1,19 +1,11 @@
-import { CreateDateColumn, Entity, PrimaryGeneratedColumn, Index } from "typeorm";
-import { QueryType, QueryTransformer } from "./decorators";
+import { Entity, Index, PrimaryColumn } from "typeorm";
+import { QueryType } from "./decorators";
 import { BaseEntity, ID } from "src/utils/entity";
-import * as dayjs from "dayjs";
 
 @Entity()
 export class CudrBaseEntity<T = any> implements BaseEntity<T> {
-  @PrimaryGeneratedColumn('uuid')
-  @Index()
+  @PrimaryColumn('varchar', { length: 20 })
+  @Index({ unique: true })
   @QueryType({ type: ID })
   id!: ID<T>;
-  @QueryTransformer({
-    toClient: (date: Date) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
-    fromClient: (str: string) => dayjs(str, 'YYYY-MM-DD HH:mm:ss').toDate(),
-  })
-  @Index()
-  @CreateDateColumn()
-  createDate!: Date
 }

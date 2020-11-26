@@ -4,7 +4,7 @@ import { Brackets, SelectQueryBuilder, WhereExpression } from "typeorm";
 import * as dayjs from 'dayjs';
 import { ID } from "src/utils/entity";
 import { loadDecoratorData, isDecorated } from "src/utils/decorator";
-import { DeepQuery, QueryLast, QueryType } from "../decorators";
+import { DeepQuery, QueryType } from "../decorators";
 
 export type QueryOption<T extends CudrBaseEntity<any>, K = any> = {
   [key in Extract<keyof T, string>]?
@@ -46,26 +46,8 @@ function buildQuery<T extends CudrBaseEntity<any>>(
       const { subKlass, metaArg } = loadDecoratorData(DeepQuery, klass, key)();
       if (metaArg.relationType === 'one-to-one' || metaArg.relationType === 'many-to-one') {
         let metaTarget: string;
-        if (isDecorated(QueryLast, klass, key)) {
-          const test = loadDecoratorData(QueryLast, klass, key)();
-          const otherSide = test.otherSide;
-          metaTarget = `${alias}_${index}.${otherSide}`;
-          qb.leftJoin((qb) => {
-            return qb.subQuery()
-              .from(subKlass, `temp_table`)
-              .groupBy(`temp_table.${otherSide}`)
-              .select(`temp_table.${otherSide}`, `otherSideId`)
-              .addSelect(`max(temp_table.createDate)`, `createDate`)
-          }, `${alias}_${index}_temp`, `${alias}.id=${alias}_${index}_temp.otherSideId`)
-            .leftJoinAndSelect(
-              `${alias}.${key}`,
-              `${alias}_${index}`,
-              `${alias}_${index}.createDate = ${alias}_${index}_temp.createDate and ${alias}_${index}.${otherSide} = ${alias}_${index}_temp.otherSideId`,
-            );
-        } else {
-          metaTarget = `${alias}.${key}`;
-          qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
-        }
+        metaTarget = `${alias}.${key}`;
+        qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
         if (meta && meta.isNull === true) {
           whereFun((we) => we.andWhere(`${metaTarget} is null`));
         } else if (meta && meta.isNull === false) {

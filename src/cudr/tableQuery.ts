@@ -78,45 +78,21 @@ type QueryResult<B extends TableQueryBodyOption<any>> = {
   : never
 }
 
-class TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>> {
-  constructor(
-    private funs: Array<(funs: TableQueryBuilder<E, B>) => void>
-  ) { }
-  private mixin(fun: (funs: any) => void) {
-    return new TableQueryBuilder<E, B>([...this.funs, fun]);
-  }
+interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>> {
   filter<T extends loadAble<any, false, false>>(
     path: (body: TableQueryBodyInput<B>) => T,
     filter: T extends loadAble<infer X, false, false> ? Filter<X> : never,
-  ): TableQueryBuilder<E, B> {
-    return this.mixin(({ filter: fun }) => fun(path, filter));
-  }
+  ): this;
   filterArray<T extends loadAble<any, false, true>>(
     path: (body: TableQueryBodyInput<B>) => T,
     filter: T extends loadAble<infer X, false, true> ? Filter<X> : never,
     isEmpty?: boolean | undefined,
-  ): TableQueryBuilder<E, B> {
-    return this.mixin(({ filterArray: fun }) => fun(path, filter, isEmpty));
-  }
-  sort(path: (body: TableQueryBodyInput<B>) => loadAble<any, false, false>, mode: -1 | 0 | 1): TableQueryBuilder<E, B> {
-    return this.mixin(({ sort: fun }) => fun(path, mode));
-  }
+  ): this;
+  sort(path: (body: TableQueryBodyInput<B>) => loadAble<any, false, false>, mode: -1 | 0 | 1): this
   query(qb: SelectQueryBuilder<E>, page?: {
     pageIndex: number,
     pageSize: number,
-  }): Promise<QueryResult<B>[]> {
-    this.funs.forEach((call) => call({
-      filter: (path, filter): any => {
-      },
-      filterArray: (path, filter, isEmpty): any => {
-
-      },
-      sort: (path, mode): any => {
-
-      },
-    } as TableQueryBuilder<E, B>))
-    throw new Error()
-  }
+  }): Promise<QueryResult<B>[]>;
 }
 
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E, B> {

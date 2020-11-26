@@ -2,7 +2,7 @@ import { Entity, Column, OneToOne, JoinColumn, ManyToOne, OneToMany, ManyToMany,
 import { GlobalRepository } from "./repository/repository.module"
 import { AccountEntity } from "./auth/authEntities"
 import { CudrBaseEntity } from "./cudr/CudrBase.entity"
-import { DeepQuery, QueryLast, CudrEntity, QueryTransformer } from "./cudr/decorators"
+import { DeepQuery, CudrEntity, QueryTransformer } from "./cudr/decorators"
 import { UserType, AccountRef } from "./auth/decorators"
 
 @Entity()
@@ -48,8 +48,8 @@ export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity
   @DeepQuery()
   @ManyToOne(() => UserEntity)
   user!: UserEntity | null
-  @OneToOne(() => RequirementLogEntity, (obj) => obj.requirement)
-  @QueryLast()
+  @OneToOne(() => RequirementLogEntity)
+  @JoinColumn()
   @DeepQuery()
   lastLog!: InstanceType<typeof RequirementLogEntity>
 }
