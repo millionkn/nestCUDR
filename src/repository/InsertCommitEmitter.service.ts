@@ -44,6 +44,7 @@ export class InsertCommitEmitterService implements OnModuleInit, EntitySubscribe
     })
   }
   afterTransactionCommit(event: TransactionCommitEvent) {
+    if (!(this.sym in event.manager)) { return }
     const callbacks: Array<() => void> = (event.manager as any)[this.sym];
     callbacks.forEach(cb => cb());
   }
