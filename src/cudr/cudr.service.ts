@@ -4,8 +4,7 @@ import { BaseEntity } from "src/utils/entity";
 import { EntityManager } from "typeorm";
 import { jsonQuery, QueryOption, MetaContext } from "./jsonQuery/jsonQuery";
 import { entityTransformerTo } from "./tools";
-
-export class CudrException extends Error { }
+import { CustomerError } from "src/customer-error";
 
 @Injectable()
 export class CudrService {
@@ -23,7 +22,7 @@ export class CudrService {
       || typeof body.where !== 'object'
       || body.where === null
     ) {
-      throw new CudrException('缺少where')
+      throw new CustomerError('缺少where')
     }
     const qb = manager.getRepository(klass).createQueryBuilder(`body`);
     const contextArr = jsonQuery(qb, `body`, klass, body.where)
@@ -47,10 +46,9 @@ export class CudrService {
     } else {
       contextArr.sort((a, b) => a.deep === b.deep ? a.deep - b.deep : Math.abs(a.userMeta.sortIndex) - Math.abs(b.userMeta.sortIndex))
         .forEach((opt) => {
-          if (opt.userMeta.sortIndex === 0) { throw new CudrException('sortIndex不能为0') }
+          if (opt.userMeta.sortIndex === 0) { throw new CustomerError('sortIndex不能为0') }
           qb.addOrderBy(`${opt.alias}.${opt.key}`, opt.userMeta.sortIndex > 0 ? 'ASC' : 'DESC');
         });
-      qb.addOrderBy(`body.createDate`, 'DESC');
       const [selectResult, total] = await qb.getManyAndCount();
       entityTransformerTo(klass, selectResult);
       return {
@@ -75,13 +73,13 @@ export class CudrService {
       || typeof body.where !== 'object'
       || body.where === null
     ) {
-      throw new CudrException('缺少where')
+      throw new CustomerError('缺少where')
     }
     const qb = manager.getRepository(klass).createQueryBuilder(`body`);
     const contextArr = jsonQuery(qb, `body`, klass, body.where);
     qb.select('1');
     let timeCont: MetaContext<{ time: { lessOrEqual?: string, moreOrEqual?: string }[] | { lessOrEqual?: string, moreOrEqual?: string } }> = contextArr.filter((cont) => 'time' in cont.userMeta)[0] as any;
-    timeCont = timeCont || { alias: `body`, key: `createDate`, userMeta: { time: {} } }
+    timeCont = timeCont || { alias: `body`, key: undefined, userMeta: { time: {} } }
     let selectArr: MetaContext<{ alias: string, select: 'count' | 'sum' }>[] = contextArr.filter((cont) => 'select' in cont.userMeta) as any;
     let itemArr: MetaContext<{ alias: string }>[] = contextArr.filter((cont) => 'alias' in cont.userMeta && !('select' in cont.userMeta)) as any;
     const afterFun = new Array<(raw: any, obj: any) => void>();
@@ -120,20 +118,35 @@ export class CudrService {
             }
           });
         } else {
-          throw new CudrException(`无效的select:${sqlFunc}`);
+          throw new CustomerError(`无效的select:${sqlFunc}`);
         }
-        const timeRef = `${timeCont.alias}.${timeCont.key}`;
-        let str = `${cont.alias}.${cont.key}`;
-        const key = `select_${selectIndex}_time_${timeIndex}`;
-        if (t.lessOrEqual) {
-          str = `if(${timeRef} <= :${key}_less,${str},${onFalse})`;
-          qb.setParameter(`${key}_less`, dayjs(t.lessOrEqual).startOf('second').toDate());
+        if (timeCont.key === undefined) {
+          const timeRef = `${timeCont.alias}.id`;
+          let str = `${cont.alias}.${cont.key}`;
+          const key = `select_${selectIndex}_time_${timeIndex}`;
+          if (t.lessOrEqual) {
+            str = `if(${timeRef} <= :${key}_less,${str},${onFalse})`;
+            qb.setParameter(`${key}_less`, dayjs(t.lessOrEqual).startOf('second').format('YYYYMMDDHHmmss'));
+          }
+          if (t.moreOrEqual) {
+            str = `if(${timeRef} >= :${key}_more,${str},${onFalse})`;
+            qb.setParameter(`${key}_more`, dayjs(t.moreOrEqual).endOf('second').format('YYYYMMDDHHmmss'));
+          }
+          qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
+        } else {
+          const timeRef = `${timeCont.alias}.${timeCont.key}`;
+          let str = `${cont.alias}.${cont.key}`;
+          const key = `select_${selectIndex}_time_${timeIndex}`;
+          if (t.lessOrEqual) {
+            str = `if(${timeRef} <= :${key}_less,${str},${onFalse})`;
+            qb.setParameter(`${key}_less`, dayjs(t.lessOrEqual).startOf('second').toDate());
+          }
+          if (t.moreOrEqual) {
+            str = `if(${timeRef} >= :${key}_more,${str},${onFalse})`;
+            qb.setParameter(`${key}_more`, dayjs(t.moreOrEqual).endOf('second').toDate());
+          }
+          qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
         }
-        if (t.moreOrEqual) {
-          str = `if(${timeRef} >= :${key}_more,${str},${onFalse})`;
-          qb.setParameter(`${key}_more`, dayjs(t.moreOrEqual).endOf('second').toDate());
-        }
-        qb.addSelect(`${sqlFunc}(${str})`, `result_${selectIndex}_time_${timeIndex}`)
       });
     });
     const rawArray = await qb.getRawMany();

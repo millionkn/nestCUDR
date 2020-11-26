@@ -17,10 +17,8 @@ readme中所有示例所用的类定义均为下面代码的定义，表为自�
 ```typescript
 @Entity()
 class BaseEntity{
-  @PrimaryGeneratedColumn('uuid')
-  id:string//uuid,唯一主键,创建时自动生成
-  @Column()
-  createDate:Date//在使用json传输时会被序列化为YYYY-MM-DD HH:mm:ss//在创建时可以不填
+  @PrimaryColumn()
+  id:string// 主键,创建时自动生成,格式为YYYYMMDDHHmmss+默认6位随机数
 }
 
 @Entity()
@@ -111,8 +109,7 @@ class CommentEntity extends BaseEntity{//用户评论
   {
     "data":[
       {
-        "id":"",//uuid
-        "createDate":"2020-01-01 12:20:00",
+        "id":"20200101122000666666",
         "content":"aaa查找出来的评论包含这段文字bbb"
       },
       //...其他两条类似的结果
@@ -120,7 +117,7 @@ class CommentEntity extends BaseEntity{//用户评论
     "total":3//符合条件的记录总数,与pageSize无关
   }
   ```
-  如果在进行查询时，除非特别标记，会查询所有被`@Column`修饰的字段(除非明确标记不查询，例如`BlobEntity`的`blob`属性),对于`CommentEntity`来说,除了有自身的`content`,还有继承来的`id`和`createDate`
+  如果在进行查询时，除非特别标记，会查询所有被`@Column`修饰的字段(除非明确标记不查询，例如`BlobEntity`的`blob`属性),对于`CommentEntity`来说,除了有自身的`content`,还有继承来的`id`
 
   当字段的属性对应时,可用的过滤条件分别为(全部可选):
   - `ID`:{in:['id']}
@@ -162,16 +159,14 @@ class CommentEntity extends BaseEntity{//用户评论
     {
       "data":[
         {
-          "id":"",//uuid
-          "createDate":"2020-01-01 12:20:00",
+          "id":"20200101122000666666",
           "content":"aaa查找出来的评论包含这段文字bbb",
           "user":{
             //...user的属性
           }
         },
         {
-          "id":"",//uuid
-          "createDate":"2020-01-01 12:20:01",
+          "id":"20200101122001666666",
           "content":"aaa查找出来的评论包含这段文字bbb",
           //数据库中这条comment的userId为null,因此查询的结果为user:undefined,在json序列化时会丢弃undefined的key-value,导致json中没有user字段
         },
@@ -296,7 +291,7 @@ class CommentEntity extends BaseEntity{//用户评论
     }
     ```
   - 排序
-    查询结果默认按照`createDate`降序排序,也可以:
+    查询结果默认按照`id`降序排序,也可以:
     ```js
     {
       where:{
@@ -318,14 +313,10 @@ class CommentEntity extends BaseEntity{//用户评论
 const requestBody = {
   where:{
     id:{
-      '':{'':{select:'count',alias:'评论数'}}
-    },
-    experience:{
-      '':{ '':{select:'sum',alias:'经验值'} }
-    },
-    createDate:{
       '':{
         '':{
+          select:'count',
+          alias:'评论数',
           time:[
             {
               moreOrEqual:'2020-01-01 00:00:00',
@@ -341,6 +332,9 @@ const requestBody = {
           ]
         }
       }
+    },
+    experience:{
+      '':{ '':{select:'sum',alias:'经验值'} }
     },
     user:{
       id:{'':{
