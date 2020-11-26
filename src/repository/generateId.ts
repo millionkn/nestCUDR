@@ -12,6 +12,7 @@ export class GenerateIdService implements EntitySubscriberInterface<any> {
     connection.subscribers.push(this);
   }
   beforeInsert(event: InsertEvent<CudrBaseEntity>) {
+    if (!event.entity) { return }
     if (event.entity.id) { return; }
     const randomNum = [...new Array(6)].map(() => Math.floor(Math.random() * 10)).join('');
     const dateStr = dayjs().format('YYYYMMDDHHmmss');
