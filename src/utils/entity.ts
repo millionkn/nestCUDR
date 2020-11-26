@@ -4,5 +4,4 @@ export type ID<T = any> = string & IDT<T>;
 
 export interface BaseEntity<T = any> {
   id: ID<T>;
-  createDate: Date;
 }

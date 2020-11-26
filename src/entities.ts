@@ -1,26 +1,16 @@
-import { Entity, Column, OneToOne, JoinColumn, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm"
+import { Entity, Column, OneToOne, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm"
 import { GlobalRepository } from "./repository/repository.module"
-import { AccountEntity } from "./auth/authEntities"
 import { CudrBaseEntity } from "./cudr/CudrBase.entity"
-import { DeepQuery, QueryLast, CudrEntity, QueryTransformer } from "./cudr/decorators"
-import { UserType, AccountRef } from "./auth/decorators"
+import { DeepQuery, QueryLast, CudrEntity } from "./cudr/decorators"
 
 @Entity()
 @GlobalRepository()
 @CudrEntity()
-@UserType()
 export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @Column()
   name!: string
   @Column()
   username!: string;
-  @QueryTransformer({
-    fromClient: () => undefined,
-  })
-  @AccountRef()
-  @OneToOne(() => AccountEntity, {})
-  @JoinColumn()
-  account!: AccountEntity
   @DeepQuery()
   @OneToMany(() => UserRequirementEntity, (req) => req.user)
   requirements!: UserRequirementEntity[];

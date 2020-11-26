@@ -1,72 +1,65 @@
-import { FindConditions, Repository, EntityManager } from "typeorm";
+import { Repository, EntityManager } from "typeorm";
 import { AccountEntity } from "./authEntities";
-import { Type, ForbiddenException } from "@nestjs/common";
 import { Md5 } from 'ts-md5';
-import { AuthError } from "./errors";
 import { ID } from "src/utils/entity";
-import { QueryDeepPartialEntity } from "typeorm/query-builder/QueryPartialEntity";
 import { Socket } from "socket.io";
-import { setLoginState } from "./tools";
-import { WsException } from "@nestjs/websockets";
+import { CustomerError } from "src/customer-error";
+import { InjectRepository } from "@nestjs/typeorm";
+
+const socketData = new Map<string, any>();
 
 export class AuthService<T extends { id: ID }> {
-  constructor(
-    private repository: Repository<T>,
-    private klass: Type<T>,
-    private info: {
-      accountKey: string,
-    },
-  ) { }
-  private async findId(password: string, where: FindConditions<T>): Promise<T['id']> {
-    const entity = await this.repository.findOne({
-      where,
-      relations: [
-        this.info.accountKey,
-      ],
-    });
-    if (!entity) { throw new AuthError(`用户名或密码错误`); }
-    const account: AccountEntity | undefined = (entity as any)[this.info.accountKey];
-    if (!account) { throw new AuthError(`未关联Account`); }
-    let md5Result = Md5.hashStr(`${account.salt}${password}`) as string;
-    if (md5Result !== account.password) { throw new AuthError(`用户名或密码错误`); }
-    return entity.id;
-  }
-  async register(manager: EntityManager, entity: QueryDeepPartialEntity<T>, password: string): Promise<T['id']> {
+  @InjectRepository(AccountEntity)
+  private repository!: Repository<AccountEntity>;
+
+  async setPassword(manager: EntityManager, id: T['id'], password: string): Promise<void> {
     const salt = `${Math.random()}`;
     const md5Result = Md5.hashStr(`${salt}${password}`) as string;
-    const accountInsertResult = await manager.insert(AccountEntity, {
+    await manager.save(AccountEntity, {
+      targetId: id,
       password: md5Result,
       salt,
     });
-    const entityInsertResult = await manager.insert(this.klass, {
-      ...entity,
-      [this.info.accountKey]: accountInsertResult.identifiers[0],
-    })
-    return entityInsertResult.identifiers[0].id;
   }
-  async login<Data extends object>(
+  async login(
     target: Socket | Express.Session,
+    entity: { id: T['id'] } | undefined,
     password: string,
-    where: FindConditions<T>,
-    dataOrFun?: Data | ((id: T['id']) => (Promise<Data> | Data)),
-  ): Promise<T['id']> {
-    let id: ID;
-    try {
-      id = await this.findId(password, where);
-    } catch (e) {
-      if (e instanceof AuthError) {
-        if ('client' in target) {
-          throw new WsException(e.message);
-        } else if ('cookie' in target) {
-          throw new ForbiddenException(e.message);
-        } else {
-          throw e;
-        }
+    dataOrFun?: any,
+  ): Promise<void> {
+    if (!(entity && entity.id)) { throw new CustomerError(`用户名或密码错误`); }
+    const account = await this.repository.findOne({ id: entity.id });
+    if (!account) { throw new CustomerError('用户名或密码错误'); }
+    let md5Result = Md5.hashStr(`${account.salt}${password}`) as string;
+    if (md5Result !== account.password) { throw new CustomerError(`用户名或密码错误`); }
+    if ('cookie' in target) {
+      target.currentUserState = {
+        id: entity.id,
+        data: dataOrFun === undefined ? {} : typeof dataOrFun === 'function' ? await dataOrFun() : dataOrFun,
+      }
+    } else if ('client' in target) {
+      socketData.set(target.id, {
+        id: entity.id,
+        data: dataOrFun === undefined ? {} : typeof dataOrFun === 'function' ? await dataOrFun() : dataOrFun,
+      });
+      target.on('disconnect', () => {
+        socketData.delete(target.id);
+      });
+    } else {
+      throw new Error(`无效的登录对象`);
+    }
+  }
+  static getLoginState(target: Socket | Express.Session | undefined) {
+    let ret: { id?: ID, data?: any } | undefined;
+    if (target) {
+      if ('cookie' in target) {
+        ret = target.currentUserState;
+      } else if ('client' in target) {
+        ret = socketData.get(target.id);
       } else {
-        throw e;
+        throw new Error(`无效的登录对象`);
       }
     }
-    await setLoginState(target, id, dataOrFun);
-    return id;
+    return ret || {};
   }
 }

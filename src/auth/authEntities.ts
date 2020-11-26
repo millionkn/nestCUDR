@@ -1,10 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
-import { ID } from "src/utils/entity";
+import { Entity, Column } from "typeorm";
+import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
 
 @Entity()
-export class AccountEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: ID<'AccountEntity'>;
+export class AccountEntity extends CudrBaseEntity {
   @Column()
   password!: string;
   @Column()
