@@ -1,7 +1,7 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
 import { ID } from "src/utils/entity";
-import { SelectQueryBuilder, EntityManager, getMetadataArgsStorage } from "typeorm";
+import { SelectQueryBuilder, EntityManager, getMetadataArgsStorage, getManager } from "typeorm";
 import { UserRequirementEntity } from "src/entities";
 import { isDecorated, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery, CudrEntity } from "./decorators";
@@ -121,21 +121,21 @@ function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
   return { column, paths };
 }
 
-const tableIndexSym = Symbol();
+const tableAliasSym = Symbol();
 
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E, B> {
   let tableIndex = 0;
   const tableNameCache: any = {
-    [tableIndexSym]: tableIndex++
+    [tableAliasSym]: `table_${tableIndex++}`,
   }
-  function getTableIndex(paths: string[]): number {
+  function getTableAlias(paths: string[]): string {
     let cache = tableNameCache;
     paths.forEach((path, index) => {
       cache = path in cache ? cache[path] : cache[path] = {
-        [tableIndexSym]: tableIndex++,
+        [tableAliasSym]: `table_${tableIndex++}`,
       }
     });
-    return cache[tableIndexSym];
+    return cache[tableAliasSym];
   }
   const callbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
   for (const alias in body) {
@@ -144,14 +144,24 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
       element({
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
-          callbacks.push((qb) => {
-            qb.addSelect(`table_${getTableIndex(paths)}${column ? `.${column}`: ''}`, alias);
-          })
+          if (column) {
+            callbacks.push((qb) => {
+              qb.addSelect(`${getTableAlias(paths)}.${column}`, alias);
+            });
+          } else {
+            callbacks.push((qb) => {
+              qb.addSelect(`${getTableAlias(paths)}`, alias);
+            });
+          }
           return {} as loadAble<any, any, any>;
         },
         count: (fun) => {
           const { column, paths } = resolvePaths(klass, fun);
+          if (column) {
 
+          } else {
+
+          }
           return {} as loadAble<any, any, any>;
         },
         min: (fun) => {

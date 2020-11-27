@@ -18,6 +18,7 @@ export class UserEntity extends CudrBaseEntity<'UserEntity'> {
   @ManyToMany(() => TGroupEntity, (obj) => obj.users, { cascade: true })
   @DeepQuery()
   groups!: TGroupEntity[];
+  
 }
 
 @Entity()
@@ -42,6 +43,8 @@ export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity
   @JoinColumn()
   @DeepQuery()
   lastLog!: InstanceType<typeof RequirementLogEntity>
+  @Column({name:'test2'})
+  test!: string;
 }
 
 @Entity()
