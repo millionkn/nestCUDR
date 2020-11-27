@@ -1,8 +1,12 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
 import { ID } from "src/utils/entity";
-import { SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder, EntityManager, getMetadataArgsStorage } from "typeorm";
 import { UserRequirementEntity } from "src/entities";
+import { isDecorated, loadDecoratorData } from "src/utils/decorator";
+import { DeepQuery, CudrEntity } from "./decorators";
+import { CustomerError } from "src/customer-error";
+import { getTagetKey } from "src/utils/getTargetKey";
 
 const refSym = Symbol();
 
@@ -56,6 +60,9 @@ interface QueryFuns<E extends CudrBaseEntity> {
   arv(
     path: (entity: WrapperInput<E>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
+  sum(
+    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+  ): loadAble<number, false, false>
 }
 
 type TableQueryBodyOption<E extends CudrBaseEntity> = {
@@ -95,8 +102,96 @@ interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBodyOp
   }): Promise<QueryResult<B>[]>;
 }
 
+function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
+  const paths = getTagetKey(fun);
+  let column: string | undefined;
+  paths.forEach((key, index) => {
+    if (isDecorated(DeepQuery, klass, key)) {
+      const { subKlass } = loadDecoratorData(DeepQuery, klass, key)();
+      klass = subKlass;
+    } else {
+      const metaArg = getMetadataArgsStorage().filterColumns(klass).filter((arg) => arg.propertyName === key)[0];
+      if (!(metaArg && paths.length === index + 1)) {
+        throw new CustomerError(`${loadDecoratorData(CudrEntity, klass).name}#${key} 不存在`);
+      }
+      column = key;
+    }
+  });
+  if (column) { paths.pop() }
+  return { column, paths };
+}
+
+const tableIndexSym = Symbol();
+
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E, B> {
-  throw new Error()
+  let tableIndex = 0;
+  const tableNameCache: any = {
+    [tableIndexSym]: tableIndex++
+  }
+  function getTableIndex(paths: string[]): number {
+    let cache = tableNameCache;
+    paths.forEach((path, index) => {
+      cache = path in cache ? cache[path] : cache[path] = {
+        [tableIndexSym]: tableIndex++,
+      }
+    });
+    return cache[tableIndexSym];
+  }
+  const callbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
+  for (const alias in body) {
+    if (body.hasOwnProperty(alias)) {
+      const element = body[alias];
+      element({
+        path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
+          const { column, paths } = resolvePaths(klass, fun);
+          callbacks.push((qb) => {
+            qb.addSelect(`table_${getTableIndex(paths)}${column ? `.${column}`: ''}`, alias);
+          })
+          return {} as loadAble<any, any, any>;
+        },
+        count: (fun) => {
+          const { column, paths } = resolvePaths(klass, fun);
+
+          return {} as loadAble<any, any, any>;
+        },
+        min: (fun) => {
+          const { column, paths } = resolvePaths(klass, fun);
+
+          return {} as loadAble<any, any, any>;
+        },
+        max: (fun) => {
+          const { column, paths } = resolvePaths(klass, fun);
+
+          return {} as loadAble<any, any, any>;
+        },
+        arv: (fun) => {
+          const { column, paths } = resolvePaths(klass, fun);
+
+          return {} as loadAble<any, any, any>;
+        },
+        sum: (fun) => {
+          const { column, paths } = resolvePaths(klass, fun);
+
+          return {} as loadAble<any, any, any>;
+        },
+      })
+    }
+  }
+  const builder: TableQueryBuilder<E, B> = {
+    filter: () => {
+      return builder;
+    },
+    filterArray: () => {
+      return builder;
+    },
+    sort: () => {
+      return builder;
+    },
+    query: async () => {
+      return []
+    }
+  };
+  return builder;
 }
 
 tableQuery(UserRequirementEntity, {
