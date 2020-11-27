@@ -45,8 +45,7 @@ function buildQuery<T extends CudrBaseEntity<any>>(
     if (isDecorated(DeepQuery, klass, key)) {
       const { subKlass, metaArg } = loadDecoratorData(DeepQuery, klass, key)();
       if (metaArg.relationType === 'one-to-one' || metaArg.relationType === 'many-to-one') {
-        let metaTarget: string;
-        metaTarget = `${alias}.${key}`;
+        let metaTarget = `${alias}.${key}`;
         qb.leftJoinAndSelect(`${alias}.${key}`, `${alias}_${index}`);
         if (meta && meta.isNull === true) {
           whereFun((we) => we.andWhere(`${metaTarget} is null`));

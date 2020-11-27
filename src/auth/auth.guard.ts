@@ -1,8 +1,8 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, HttpException } from '@nestjs/common';
-import { getLoginState } from './tools';
-import { WsException } from '@nestjs/websockets';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ID } from 'src/utils/entity';
+import { AuthService } from './auth.service';
+import { CustomerError } from 'src/customer-error';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -14,15 +14,15 @@ export class AuthGuard implements CanActivate {
     if (!authFun) { return true; }
     const type = context.getType();
     if (type === 'http') {
-      const state = getLoginState(context.switchToHttp().getRequest<Express.Request>().session)
+      const state = AuthService.getLoginState(context.switchToHttp().getRequest<Express.Request>().session)
       if (!state.id) {
-        throw new ForbiddenException('尚未登录');
+        throw new CustomerError('尚未登录');
       }
       return await authFun(state.data, state.id);
     } else if (type === 'ws') {
-      const state = getLoginState(context.switchToWs().getClient())
+      const state = AuthService.getLoginState(context.switchToWs().getClient())
       if (!state.id) {
-        throw new WsException('尚未登录');
+        throw new CustomerError('尚未登录');
       }
       return await authFun(state.data, state.id);
     }

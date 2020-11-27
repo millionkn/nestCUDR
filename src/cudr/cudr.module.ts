@@ -3,7 +3,7 @@ import { BlobModule } from './blob/blob.module';
 import { MissionListController } from './MissionList.controller';
 import { loadDecoratedKlass, loadDecoratorData } from 'src/utils/decorator';
 import { CudrEntity } from './decorators';
-import { CudrService, CudrException } from './cudr.service';
+import { CudrService } from './cudr.service';
 import { getManager } from 'typeorm';
 
 @Module({
@@ -30,27 +30,11 @@ export class CudrModule {
             @Inject(CudrService) service!: CudrService;
             @Post('findEntityList')
             async findEntityList(@Body() body: any) {
-              try {
-                return await this.service.findEntityList(getManager(), klass, body);
-              } catch (e) {
-                if (e instanceof CudrException) {
-                  throw new BadRequestException(e.message)
-                } else {
-                  throw e;
-                }
-              }
+              return await this.service.findEntityList(getManager(), klass, body);
             }
             @Post('statistic')
             async statistic(@Body() body: any) {
-              try {
-                return await this.service.statistic(getManager(), klass, body);
-              } catch (e) {
-                if (e instanceof CudrException) {
-                  throw new BadRequestException(e.message)
-                } else {
-                  throw e;
-                }
-              }
+              return await this.service.statistic(getManager(), klass, body);
             }
           }
           let controllerKlass = eval(`class ${name}${CudrController.name} extends ${CudrController.name}{};${name}${CudrController.name}`);
