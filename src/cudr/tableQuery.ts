@@ -9,13 +9,17 @@ import { CustomerError } from "src/customer-error";
 import { getTagetKey } from "src/utils/getTargetKey";
 
 const refSym = Symbol();
+const isArraySym = Symbol();
+const isNullSym = Symbol();
 
 type Cover<T1, cudrNull extends boolean, cudrArray extends boolean,
   T2 = cudrArray extends true ? T1[] : T1,
   T3 = cudrNull extends true ? T2 | null : T2,
   > = T3
 type Ref<T, cudrNull extends boolean, cudrArray extends boolean> = {
-  [refSym]: Cover<T, cudrNull, cudrArray>
+  [refSym]: T,
+  [isArraySym]: cudrArray,
+  [isNullSym]: cudrNull,
 }
 
 type Wrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray extends boolean> = {
@@ -34,23 +38,34 @@ type Filter<T> = T extends ID ? { in: T[] }
   : T extends boolean ? { equal: boolean }
   : T extends null | undefined | infer X ? X extends CudrBaseEntity ? { in: X['id'][] } : never
   : never
-const loadSym = Symbol();
+
 interface loadAble<T, cudrNull extends boolean, cudrArray extends boolean> {
-  [loadSym]: Cover<T, cudrNull, cudrArray>;
+  [refSym]: T,
+  [isArraySym]: cudrArray,
+  [isNullSym]: cudrNull,
 }
 type WrapperInput<E extends CudrBaseEntity> = Wrapper<E, false, false>
 
 interface QueryFuns<E extends CudrBaseEntity> {
+  path<T extends CudrBaseEntity, array extends boolean,>(
+    path: (entity: WrapperInput<E>) => Wrapper<T, true, array>,
+    defaultValue: T,
+  ): loadAble<T, false, array>
   path<T, array extends boolean>(
-    path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, false, array> : Ref<T, false, array>,
+    path: (entity: WrapperInput<E>) => Ref<T, true, array>,
+    defaultValue: T
   ): loadAble<T, false, array>
-  path<T, array extends boolean, ET extends T>(
-    path: (entity: WrapperInput<E>) => T extends CudrBaseEntity ? Wrapper<T, true, array> : Ref<T, true, array>,
-    defaultValue: ET | null,
+  path<T extends CudrBaseEntity, array extends boolean>(
+    path: (entity: WrapperInput<E>) => Wrapper<T, false, array>,
   ): loadAble<T, false, array>
+  path<T, array extends boolean>(
+    path: (entity: WrapperInput<E>) => Ref<T, false, array>,
+  ): loadAble<T, false, array>
+
   count(
-    path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, boolean, true> | Ref<string, boolean, true> | Ref<ID, boolean, true>,
+    path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, boolean, true> | Ref<string, boolean, true>,
   ): loadAble<number, false, false>
+
   max(
     path: (entity: WrapperInput<E>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
@@ -124,35 +139,64 @@ function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
 const tableAliasSym = Symbol();
 
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E, B> {
-  let tableIndex = 0;
-  const tableNameCache: any = {
-    [tableAliasSym]: `table_${tableIndex++}`,
-  }
-  function getTableAlias(paths: string[]): string {
-    let cache = tableNameCache;
-    paths.forEach((path, index) => {
-      cache = path in cache ? cache[path] : cache[path] = {
-        [tableAliasSym]: `table_${tableIndex++}`,
-      }
-    });
-    return cache[tableAliasSym];
-  }
-  const callbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
+  const getTableAlias = (() => {
+    let tableIndex = 0;
+    const tableNameCache: any = {
+      [tableAliasSym]: `table_${tableIndex++}`,
+    }
+    return (paths: string[]) => {
+      let cache = tableNameCache;
+      paths.forEach((path) => {
+        cache = path in cache ? cache[path] : cache[path] = {
+          [tableAliasSym]: `table_${tableIndex++}`,
+        }
+      });
+      return cache[tableAliasSym] as string;
+    }
+  })();
+  const getDefaultValueAlias = (() => {
+    let valueIndex = 0;
+    return () => {
+      const name = `defaultValue_${valueIndex++}`;
+      return name;
+    }
+  })();
+
+  const qbCallbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
+  const rawResultCallbacks = new Array<(raw: any, out: any) => void>()
   for (const alias in body) {
     if (body.hasOwnProperty(alias)) {
       const element = body[alias];
       element({
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
-          if (column) {
-            callbacks.push((qb) => {
-              qb.addSelect(`${getTableAlias(paths)}.${column}`, alias);
-            });
+          const tableAlias = getTableAlias(paths);
+          if (defaultValue === undefined) {
+            if (column) {
+              const defaultValueAlias = getDefaultValueAlias();
+              qbCallbacks.push((qb) => {
+                qb.addSelect(`if(${tableAlias}.${column} is null,:${defaultValueAlias},${tableAlias}.${column})`, alias);
+                qb.setParameter(defaultValueAlias, defaultValue);
+              });
+              rawResultCallbacks.push((raw, out) => {
+                out[alias] = raw[alias];
+              });
+            } else {
+              qbCallbacks.push((qb) => {
+                qb.addSelect(`${tableAlias}.${column}`, alias);
+              });
+              rawResultCallbacks.push((raw, out) => {
+                out[alias] = raw[alias];
+              });
+            }
           } else {
-            callbacks.push((qb) => {
-              qb.addSelect(`${getTableAlias(paths)}`, alias);
-            });
+            if (column) {
+
+            } else {
+
+            }
           }
+
           return {} as loadAble<any, any, any>;
         },
         count: (fun) => {
