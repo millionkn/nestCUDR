@@ -208,11 +208,13 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
           const { subKlass, isArray } = getMeta(paths);
-          if (subKlass === klass) {
-            if(column === undefined){
-              idRefFun = (out)=>out[keyAlias];
-            }else if()
-           }
+          if (paths.length === 0) {
+            if (column === undefined) {
+              idRefFun = (out) => out[keyAlias].id;
+            } else if (column === 'id') {
+              idRefFun = (out) => out[keyAlias];
+            }
+          }
           if (isArray) { arrayAlias.push(keyAlias); }
           const tableAlias = getTableAlias(paths);
           if (defaultValue === undefined) {
