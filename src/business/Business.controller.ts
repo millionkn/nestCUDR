@@ -3,6 +3,7 @@ import { UserEntity } from "src/entities";
 import { AuthService } from "src/auth/auth.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, getManager, getMetadataArgsStorage } from "typeorm";
+import { tableQuery } from "src/cudr/tableQuery";
 
 @Controller('api')
 export class BusinessController {
@@ -25,13 +26,10 @@ export class BusinessController {
 
   @Post('test')
   async test() {
-    const result = await getManager().createQueryBuilder()
-      .from(UserEntity,'user')
-      .select('1')
-      .leftJoin(`user.requirements`,'requirements')
-      .addSelect('user.name','name')
-      .addSelect('requirements','requirements')
-      .getRawMany();
+    const result = await tableQuery(UserEntity, {
+      test2: ({ path }) => path((e) => e.id),
+    })
+      .query()
     console.log(result);
     return result;
   }

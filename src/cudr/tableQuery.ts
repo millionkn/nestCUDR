@@ -111,10 +111,22 @@ interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBodyOp
     isEmpty?: boolean | undefined,
   ): this;
   sort(path: (body: TableQueryBodyInput<B>) => loadAble<any, false, false>, mode: -1 | 0 | 1): this
-  query(qb: SelectQueryBuilder<E>, page?: {
-    pageIndex: number,
-    pageSize: number,
+  query(opts?: {
+    manager?: EntityManager,
+    page?: {
+      index: number,
+      size: number,
+    }
   }): Promise<QueryResult<B>[]>;
+}
+
+function parents(klass: Type<any>) {
+  const arr = [klass];
+  while (klass !== Object) {
+    klass = Object.getPrototypeOf(klass.prototype).constructor;
+    arr.push(klass);
+  }
+  return arr;
 }
 
 function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
@@ -125,7 +137,7 @@ function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
       const { subKlass } = loadDecoratorData(DeepQuery, klass, key)();
       klass = subKlass;
     } else {
-      const metaArg = getMetadataArgsStorage().filterColumns(klass).filter((arg) => arg.propertyName === key)[0];
+      const metaArg = getMetadataArgsStorage().filterColumns(parents(klass)).filter((arg) => arg.propertyName === key)[0];
       if (!(metaArg && paths.length === index + 1)) {
         throw new CustomerError(`${loadDecoratorData(CudrEntity, klass).name}#${key} 不存在`);
       }
@@ -139,19 +151,30 @@ function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
 const tableAliasSym = Symbol();
 
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOption<E>>(klass: Type<E>, body: B): TableQueryBuilder<E, B> {
-  const getTableAlias = (() => {
+  const { getTableAlias, joinTable } = (() => {
     let tableIndex = 0;
     const tableNameCache: any = {
       [tableAliasSym]: `table_${tableIndex++}`,
     }
-    return (paths: string[]) => {
-      let cache = tableNameCache;
-      paths.forEach((path) => {
-        cache = path in cache ? cache[path] : cache[path] = {
-          [tableAliasSym]: `table_${tableIndex++}`,
+    function joinTable(qb: SelectQueryBuilder<any>, object: any) {
+      for (const key in object) {
+        if (object.hasOwnProperty(key)) {
+          qb.leftJoin(`${object[tableAliasSym]}.${key}`, object[key][tableAliasSym]);
+          joinTable(qb, object[key]);
         }
-      });
-      return cache[tableAliasSym] as string;
+      }
+    }
+    return {
+      joinTable: (qb: SelectQueryBuilder<any>) => joinTable(qb, tableNameCache),
+      getTableAlias: (paths: string[]) => {
+        let cache = tableNameCache;
+        paths.forEach((path) => {
+          cache = path in cache ? cache[path] : cache[path] = {
+            [tableAliasSym]: `table_${tableIndex++}`,
+          }
+        });
+        return cache[tableAliasSym] as string;
+      }
     }
   })();
   const getDefaultValueAlias = (() => {
@@ -161,42 +184,84 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
       return name;
     }
   })();
-
+  function getMeta(paths: string[]) {
+    let subKlass = klass;
+    let isArray = false;
+    paths.forEach((path) => {
+      const arg = getMetadataArgsStorage().filterRelations(parents(subKlass)).find((arg) => arg.propertyName === path);
+      if (!arg) { throw new CustomerError(`${subKlass.name}#${path}不存在`); }
+      const target = arg.type;
+      if (typeof target === 'string') { throw new CustomerError(``); }
+      subKlass = target() as Type<E>;
+      if (arg.relationType === 'many-to-many' || arg.relationType === 'one-to-many') { isArray = true; }
+    });
+    return { subKlass, isArray };
+  }
   const qbCallbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
-  const rawResultCallbacks = new Array<(raw: any, out: any) => void>()
-  for (const alias in body) {
-    if (body.hasOwnProperty(alias)) {
-      const element = body[alias];
+  const rawResultCallbacks = new Array<(raw: any, out: any) => void>();
+  let arrayAlias = new Array<string>();
+  let idRefFun = null as null | ((out: any) => ID<any>);
+  for (const keyAlias in body) {
+    if (body.hasOwnProperty(keyAlias)) {
+      const element = body[keyAlias];
       element({
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
+          const { subKlass, isArray } = getMeta(paths);
+          if (subKlass === klass) {
+            if(column === undefined){
+              idRefFun = (out)=>out[keyAlias];
+            }else if()
+           }
+          if (isArray) { arrayAlias.push(keyAlias); }
           const tableAlias = getTableAlias(paths);
           if (defaultValue === undefined) {
             if (column) {
-              const defaultValueAlias = getDefaultValueAlias();
               qbCallbacks.push((qb) => {
-                qb.addSelect(`if(${tableAlias}.${column} is null,:${defaultValueAlias},${tableAlias}.${column})`, alias);
-                qb.setParameter(defaultValueAlias, defaultValue);
+                qb.addSelect(`${tableAlias}.${column}`, keyAlias);
               });
               rawResultCallbacks.push((raw, out) => {
-                out[alias] = raw[alias];
+                out[keyAlias] = raw[keyAlias];
               });
             } else {
               qbCallbacks.push((qb) => {
-                qb.addSelect(`${tableAlias}.${column}`, alias);
+                qb.addSelect(`${tableAlias}`, keyAlias);
               });
               rawResultCallbacks.push((raw, out) => {
-                out[alias] = raw[alias];
+                out[keyAlias] = {};
+                getMetadataArgsStorage().filterColumns(parents(subKlass)).forEach((arg) => {
+                  const name = arg.options.name || arg.propertyName;
+                  out[keyAlias][arg.propertyName] = raw[`${tableAlias}_${name}`];
+                });
               });
             }
           } else {
             if (column) {
-
+              const defaultValueAlias = getDefaultValueAlias();
+              qbCallbacks.push((qb) => {
+                qb.addSelect(`if(${tableAlias}.${column} is null,:${defaultValueAlias},${tableAlias}.${column})`, keyAlias);
+                qb.setParameter(defaultValueAlias, defaultValue);
+              });
+              rawResultCallbacks.push((raw, out) => {
+                out[keyAlias] = raw[keyAlias];
+              });
             } else {
-
+              qbCallbacks.push((qb) => {
+                qb.addSelect(`${tableAlias}`, keyAlias);
+              });
+              rawResultCallbacks.push((raw, out) => {
+                if (raw[`${keyAlias}_id`] === null) {
+                  out[keyAlias] = defaultValue
+                } else {
+                  out[keyAlias] = {};
+                  getMetadataArgsStorage().filterColumns(parents(klass)).forEach((arg) => {
+                    const name = arg.options.name || arg.propertyName;
+                    out[keyAlias][arg.propertyName] = raw[`${keyAlias}_${name}`];
+                  });
+                }
+              });
             }
           }
-
           return {} as loadAble<any, any, any>;
         },
         count: (fun) => {
@@ -241,15 +306,20 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
     sort: () => {
       return builder;
     },
-    query: async () => {
-      return []
+    query: async (opts) => {
+      opts = opts || {};
+      const manager = opts.manager || getManager();
+      const qb = manager.createQueryBuilder().from(klass, getTableAlias([]));
+      qbCallbacks.forEach((fun) => fun(qb));
+      joinTable(qb);
+      const results = await qb.getRawMany();
+      console.log('raw results:', results)
+      return results.map((raw) => {
+        const out: any = {};
+        rawResultCallbacks.forEach((fun) => fun(raw, out));
+        return out
+      })
     }
   };
   return builder;
 }
-
-tableQuery(UserRequirementEntity, {
-  test2: ({ path }) => path((e) => e.user.name, '--')
-})
-  .filter((e) => e.test2, { in: ['--'] })
-  .query(123 as any)
