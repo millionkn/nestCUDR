@@ -28,6 +28,7 @@ export class BusinessController {
   async test() {
     const result = await tableQuery(UserEntity, {
       test2: ({ path }) => path((e) => e.id),
+      xxx: ({ path }) => path(e => e.requirements)
     })
       .query()
     console.log(result);

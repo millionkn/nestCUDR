@@ -7,6 +7,7 @@ import { isDecorated, loadDecoratorData } from "src/utils/decorator";
 import { DeepQuery, CudrEntity } from "./decorators";
 import { CustomerError } from "src/customer-error";
 import { getTagetKey } from "src/utils/getTargetKey";
+import { duplicateRemoval } from "src/utils/duplicateRemoval";
 
 const refSym = Symbol();
 const isArraySym = Symbol();
@@ -314,13 +315,29 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
       const qb = manager.createQueryBuilder().from(klass, getTableAlias([]));
       qbCallbacks.forEach((fun) => fun(qb));
       joinTable(qb);
+      if (arrayAlias.length !== 0) {
+        if (idRefFun === null) {
+          qb.addSelect(`${getTableAlias([])}.id`, 'mergeId');
+          idRefFun = (r) => r.mergeId
+        }
+      }
       const results = await qb.getRawMany();
-      console.log('raw results:', results)
-      return results.map((raw) => {
+      const coverResults = results.map((raw) => {
         const out: any = {};
         rawResultCallbacks.forEach((fun) => fun(raw, out));
         return out
-      })
+      });
+      if (arrayAlias.length === 0) {
+        return coverResults;
+      } else {
+        return duplicateRemoval(coverResults, (result) => idRefFun!(result)).map((r) => {
+          const willMerge = coverResults.filter((c)=>idRefFun!(c) === idRefFun!(r));
+          arrayAlias.forEach((alias)=>{
+            r[alias] = willMerge.map((w)=>w[alias]);
+          });
+          return r;
+        })
+      }
     }
   };
   return builder;
