@@ -201,7 +201,6 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
   const qbCallbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
   const rawResultCallbacks = new Array<(raw: any, out: any) => void>();
   let arrayAlias = new Array<string>();
-  let idRefFun = null as null | ((out: any) => ID<any>);
   for (const keyAlias in body) {
     if (body.hasOwnProperty(keyAlias)) {
       const element = body[keyAlias];
@@ -209,13 +208,6 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
           const { subKlass, isArray } = getMeta(paths);
-          if (paths.length === 0) {
-            if (column === undefined) {
-              idRefFun = (out) => out[keyAlias].id;
-            } else if (column === 'id') {
-              idRefFun = (out) => out[keyAlias];
-            }
-          }
           if (isArray) { arrayAlias.push(keyAlias); }
           const tableAlias = getTableAlias(paths);
           if (defaultValue === undefined) {
@@ -316,10 +308,7 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
       qbCallbacks.forEach((fun) => fun(qb));
       joinTable(qb);
       if (arrayAlias.length !== 0) {
-        if (idRefFun === null) {
-          qb.addSelect(`${getTableAlias([])}.id`, 'mergeId');
-          idRefFun = (r) => r.mergeId
-        }
+        qb.addSelect(`${getTableAlias([])}.id`, 'mergeId');
       }
       const results = await qb.getRawMany();
       const coverResults = results.map((raw) => {
@@ -330,10 +319,10 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
       if (arrayAlias.length === 0) {
         return coverResults;
       } else {
-        return duplicateRemoval(coverResults, (result) => idRefFun!(result)).map((r) => {
-          const willMerge = coverResults.filter((c)=>idRefFun!(c) === idRefFun!(r));
-          arrayAlias.forEach((alias)=>{
-            r[alias] = willMerge.map((w)=>w[alias]);
+        return duplicateRemoval(coverResults, (result) => result.mergeId).map((r) => {
+          const willMerge = coverResults.filter((c) => c.mergeId === r.mergeId);
+          arrayAlias.forEach((alias) => {
+            r[alias] = willMerge.map((w) => w[alias]);
           });
           return r;
         })
