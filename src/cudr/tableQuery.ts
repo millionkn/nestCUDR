@@ -2,14 +2,11 @@ import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
 import { ID } from "src/utils/entity";
 import { SelectQueryBuilder, EntityManager, getMetadataArgsStorage, getManager } from "typeorm";
-import { UserRequirementEntity } from "src/entities";
-import { isDecorated, loadDecoratorData } from "src/utils/decorator";
-import { DeepQuery, CudrEntity } from "./decorators";
 import { CustomerError } from "src/customer-error";
 import { getTagetKey } from "src/utils/getTargetKey";
 import { duplicateRemoval } from "src/utils/duplicateRemoval";
 
-const refSym = Symbol();
+const typeSym = Symbol();
 const isArraySym = Symbol();
 const isNullSym = Symbol();
 
@@ -18,7 +15,7 @@ type Cover<T1, cudrNull extends boolean, cudrArray extends boolean,
   T3 = cudrNull extends true ? T2 | null : T2,
   > = T3
 type Ref<T, cudrNull extends boolean, cudrArray extends boolean> = {
-  [refSym]: T,
+  [typeSym]: T,
   [isArraySym]: cudrArray,
   [isNullSym]: cudrNull,
 }
@@ -40,12 +37,19 @@ type Filter<T> = T extends ID ? { in: T[] }
   : T extends null | undefined | infer X ? X extends CudrBaseEntity ? { in: X['id'][] } : never
   : never
 
+const loadSym = Symbol();
+
 interface loadAble<T, cudrNull extends boolean, cudrArray extends boolean> {
-  [refSym]: T,
+  [loadSym]: true,
+  [typeSym]: T,
   [isArraySym]: cudrArray,
   [isNullSym]: cudrNull,
 }
 type WrapperInput<E extends CudrBaseEntity> = Wrapper<E, false, false>
+
+interface ArrayHandlers<T> {
+  filter(filter: Filter<T>): this
+}
 
 interface QueryFuns<E extends CudrBaseEntity> {
   path<T extends CudrBaseEntity, array extends boolean,>(
@@ -106,11 +110,6 @@ interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBodyOp
     path: (body: TableQueryBodyInput<B>) => T,
     filter: T extends loadAble<infer X, false, false> ? Filter<X> : never,
   ): this;
-  filterArray<T extends loadAble<any, false, true>>(
-    path: (body: TableQueryBodyInput<B>) => T,
-    filter: T extends loadAble<infer X, false, true> ? Filter<X> : never,
-    isEmpty?: boolean | undefined,
-  ): this;
   sort(path: (body: TableQueryBodyInput<B>) => loadAble<any, false, false>, mode: -1 | 0 | 1): this
   query(opts?: {
     manager?: EntityManager,
@@ -133,16 +132,25 @@ function parents(klass: Type<any>) {
 function resolvePaths(klass: Type<any>, fun: (e: any) => any) {
   const paths = getTagetKey(fun);
   let column: string | undefined;
-  paths.forEach((key, index) => {
-    if (isDecorated(DeepQuery, klass, key)) {
-      const { subKlass } = loadDecoratorData(DeepQuery, klass, key)();
-      klass = subKlass;
-    } else {
-      const metaArg = getMetadataArgsStorage().filterColumns(parents(klass)).filter((arg) => arg.propertyName === key)[0];
-      if (!(metaArg && paths.length === index + 1)) {
-        throw new CustomerError(`${loadDecoratorData(CudrEntity, klass).name}#${key} 不存在`);
+  paths.forEach((path, index) => {
+    if (paths.length === index + 1) {
+      const columnMetaArg = getMetadataArgsStorage().filterColumns(parents(klass)).find((arg) => arg.propertyName === path);
+      const RelationMetaArg = getMetadataArgsStorage().filterRelations(parents(klass)).find((arg) => arg.propertyName === path);
+      if (columnMetaArg) {
+        column = path;
+      } else if (RelationMetaArg) {
+        const type = RelationMetaArg.type;
+        if (typeof type === 'string') { throw new Error(`Relations不能使用string:${type}`); }
+        klass = type();
+      } else {
+        throw new CustomerError(`${paths.join('.')} 不存在`);
       }
-      column = key;
+    } else {
+      const metaArg = getMetadataArgsStorage().filterRelations(parents(klass)).find((arg) => arg.propertyName === path);
+      if (!metaArg) { throw new CustomerError(`${paths.join('.')} 不存在`); }
+      const type = metaArg.type;
+      if (typeof type === 'string') { throw new Error(`Relations不能使用string:${type}`); }
+      klass = type();
     }
   });
   if (column) { paths.pop() }
@@ -201,9 +209,15 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
   const qbCallbacks = new Array<(qb: SelectQueryBuilder<any>) => void>();
   const rawResultCallbacks = new Array<(raw: any, out: any) => void>();
   let arrayAlias = new Array<string>();
-  for (const keyAlias in body) {
-    if (body.hasOwnProperty(keyAlias)) {
-      const element = body[keyAlias];
+  const aliasedBody: TableQueryBodyOption<E> = {};
+  for (const key in body) {
+    if (body.hasOwnProperty(key)) {
+      aliasedBody[`alias_${key}`] = body[key]
+    }
+  }
+  for (const keyAlias in aliasedBody) {
+    if (aliasedBody.hasOwnProperty(keyAlias)) {
+      const element = aliasedBody[keyAlias];
       element({
         path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
@@ -261,7 +275,8 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
         },
         count: (fun) => {
           const { column, paths } = resolvePaths(klass, fun);
-          if (column) {
+          if (column && column !== 'id') {
+            const tableAlias = getTableAlias(paths.slice(0, paths.length - 1))
 
           } else {
 
@@ -295,9 +310,6 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
     filter: () => {
       return builder;
     },
-    filterArray: () => {
-      return builder;
-    },
     sort: () => {
       return builder;
     },
@@ -316,17 +328,22 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
         rawResultCallbacks.forEach((fun) => fun(raw, out));
         return out
       });
-      if (arrayAlias.length === 0) {
-        return coverResults;
-      } else {
-        return duplicateRemoval(coverResults, (result) => result.mergeId).map((r) => {
-          const willMerge = coverResults.filter((c) => c.mergeId === r.mergeId);
-          arrayAlias.forEach((alias) => {
-            r[alias] = willMerge.map((w) => w[alias]);
-          });
-          return r;
-        })
-      }
+      const mergedResults = arrayAlias.length === 0 ? coverResults : duplicateRemoval(coverResults, (result) => result.mergeId).map((r) => {
+        const willMerge = coverResults.filter((c) => c.mergeId === r.mergeId);
+        const a = { ...r }
+        arrayAlias.forEach((alias) => {
+          a[alias] = willMerge.map((w) => w[alias]);
+        });
+        return a;
+      });
+      const aliasedResults = mergedResults.map((r) => {
+        const a = {} as any;
+        Object.keys(body).forEach((key) => {
+          a[key] = r[`alias_${key}`]
+        });
+        return a;
+      });
+      return aliasedResults;
     }
   };
   return builder;

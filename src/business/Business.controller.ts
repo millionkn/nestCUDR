@@ -27,8 +27,10 @@ export class BusinessController {
   @Post('test')
   async test() {
     const result = await tableQuery(UserEntity, {
-      test2: ({ path }) => path((e) => e.id),
-      xxx: ({ path }) => path(e => e.requirements)
+      t_id: ({ path }) => path((e) => e.id),
+      count: ({ count }) => count(e => e.groups),
+      t_rs: ({ path }) => path(e => e.requirements.test),
+      t_name: ({ path }) => path(e => e.name),
     })
       .query()
     console.log(result);
