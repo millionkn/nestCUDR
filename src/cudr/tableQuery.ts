@@ -45,43 +45,41 @@ interface loadAble<T, cudrNull extends boolean, cudrArray extends boolean> {
   [isArraySym]: cudrArray,
   [isNullSym]: cudrNull,
 }
-type WrapperInput<E extends CudrBaseEntity> = Wrapper<E, false, false>
 
-interface ArrayHandlers<T> {
-  filter(filter: Filter<T>): this
+interface ArrayHandlers<T, cudrNull extends boolean> extends loadAble<T, cudrNull, true> {
+  filter: T extends CudrBaseEntity ? <R, isNull extends boolean>(
+    path: (entity: Wrapper<T, cudrNull, true>) => R extends CudrBaseEntity ? Wrapper<R, isNull, true> : Ref<R, isNull, true>,
+    filter: R extends infer X ? Filter<X> : never
+  ) => ArrayHandlers<R, cudrNull> : (filter: Filter<T>) => this
 }
 
 interface QueryFuns<E extends CudrBaseEntity> {
-  path<T extends CudrBaseEntity, array extends boolean,>(
-    path: (entity: WrapperInput<E>) => Wrapper<T, true, array>,
+  path<T, isNull extends boolean>(
+    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, isNull, true> : Ref<T, isNull, true>,
+  ): ArrayHandlers<T, false>
+  path<T>(
+    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, false, false> : Ref<T, false, false>,
+  ): loadAble<T, false, false>
+  path<T>(
+    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, true, false> : Ref<T, true, false>,
     defaultValue: T,
-  ): loadAble<T, false, array>
-  path<T, array extends boolean>(
-    path: (entity: WrapperInput<E>) => Ref<T, true, array>,
-    defaultValue: T
-  ): loadAble<T, false, array>
-  path<T extends CudrBaseEntity, array extends boolean>(
-    path: (entity: WrapperInput<E>) => Wrapper<T, false, array>,
-  ): loadAble<T, false, array>
-  path<T, array extends boolean>(
-    path: (entity: WrapperInput<E>) => Ref<T, false, array>,
-  ): loadAble<T, false, array>
+  ): loadAble<T, false, false>
 
   count(
-    path: (entity: WrapperInput<E>) => Wrapper<CudrBaseEntity, boolean, true> | Ref<string, boolean, true>,
+    path: (entity: Wrapper<E, false, false>) => Wrapper<CudrBaseEntity, boolean, true> | Ref<string, boolean, true>,
   ): loadAble<number, false, false>
 
   max(
-    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+    path: (entity: Wrapper<E, false, false>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
   min(
-    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+    path: (entity: Wrapper<E, false, false>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
   arv(
-    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+    path: (entity: Wrapper<E, false, false>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
   sum(
-    path: (entity: WrapperInput<E>) => Ref<number, any, true>,
+    path: (entity: Wrapper<E, false, false>) => Ref<number, any, true>,
   ): loadAble<number, false, false>
 }
 
@@ -219,7 +217,7 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBodyOpt
     if (aliasedBody.hasOwnProperty(keyAlias)) {
       const element = aliasedBody[keyAlias];
       element({
-        path: (fun: (w: WrapperInput<E>) => any, defaultValue?: any) => {
+        path: (fun: (w: Wrapper<E, false, false>) => any, defaultValue?: any) => {
           const { column, paths } = resolvePaths(klass, fun);
           const { subKlass, isArray } = getMeta(paths);
           if (isArray) { arrayAlias.push(keyAlias); }

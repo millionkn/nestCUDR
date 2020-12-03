@@ -1,5 +1,5 @@
 import { Controller, Post, Session, Body, Inject } from "@nestjs/common";
-import { UserEntity } from "src/entities";
+import { UserEntity, UserRequirementEntity } from "src/entities";
 import { AuthService } from "src/auth/auth.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, getManager, getMetadataArgsStorage } from "typeorm";
@@ -26,14 +26,5 @@ export class BusinessController {
 
   @Post('test')
   async test() {
-    const result = await tableQuery(UserEntity, {
-      t_id: ({ path }) => path((e) => e.id),
-      count: ({ count }) => count(e => e.groups),
-      t_rs: ({ path }) => path(e => e.requirements.test),
-      t_name: ({ path }) => path(e => e.name),
-    })
-      .query()
-    console.log(result);
-    return result;
   }
 }
