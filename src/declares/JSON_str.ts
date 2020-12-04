@@ -1,7 +1,7 @@
-const sym = Symbol();
+const JSONStrSym = Symbol();
 
 declare interface JSONStr<T> extends String {
-  [sym]: T
+  [JSONStrSym]: T
 }
 
 declare interface JSON {

@@ -45,7 +45,7 @@ export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity
   @DeepQuery()
   lastLog!: InstanceType<typeof RequirementLogEntity>
   @Column({ name: 'test2' })
-  test!: string;
+  test!: number;
 }
 
 @Entity()
