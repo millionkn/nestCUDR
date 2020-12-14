@@ -1,9 +1,8 @@
 import { Controller, Post, Session, Body, Inject } from "@nestjs/common";
-import { UserEntity, UserRequirementEntity } from "src/entities";
-import { AuthService } from "src/auth/auth.service";
+import { UserEntity } from "@/entities";
+import { AuthService } from "@/auth/auth.service";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, getManager, getMetadataArgsStorage } from "typeorm";
-import { tableQuery } from "src/cudr/tableQuery";
+import { Repository } from "typeorm";
 
 @Controller('api')
 export class BusinessController {

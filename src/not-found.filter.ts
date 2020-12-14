@@ -1,6 +1,6 @@
-import { ArgumentsHost, Catch, ExceptionFilter, NotFoundException } from '@nestjs/common';
-import { Response, Request } from 'express';
-import { join } from 'path';
+import { ArgumentsHost, Catch, ExceptionFilter, NotFoundException } from "@nestjs/common";
+import { Response, Request } from "express";
+import { join } from "path";
 
 const indexPath = join(__dirname, '../static/index.html');
 

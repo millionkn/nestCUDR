@@ -1,7 +1,7 @@
-import { Controller, Post, UseInterceptors, UploadedFiles, Inject, forwardRef, Get, Param, Res, NotFoundException } from '@nestjs/common';
-import { AnyFilesInterceptor } from '@nestjs/platform-express'
-import { BlobService } from './blob.service';
-import { Response } from 'express'
+import { Controller, Post, UseInterceptors, UploadedFiles, Inject, forwardRef, Get, Param, Res, NotFoundException } from "@nestjs/common";
+import { AnyFilesInterceptor } from "@nestjs/platform-express";
+import { BlobService } from "./blob.service";
+import { Response } from "express";
 @Controller('cudr/blob')
 export class BlobController {
   @Inject(forwardRef(() => BlobService))

@@ -1,7 +1,7 @@
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { Response } from 'express';
-import { CustomerError } from './customer-error';
-import { Socket } from 'socket.io';
+import { ArgumentsHost, Catch, ExceptionFilter } from "@nestjs/common";
+import { Response } from "express";
+import { CustomerError } from "./customer-error";
+import { Socket } from "socket.io";
 
 @Catch(CustomerError)
 export class CustomerErrorFilter implements ExceptionFilter {

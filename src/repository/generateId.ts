@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/typeorm";
 import { Connection, InsertEvent, EntitySubscriberInterface } from "typeorm";
-import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
+import { CudrBaseEntity } from "@/cudr/CudrBase.entity";
 import * as dayjs from "dayjs";
 
 @Injectable()

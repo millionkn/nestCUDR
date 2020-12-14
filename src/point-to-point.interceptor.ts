@@ -1,6 +1,6 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable, concat, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+import { Observable, concat, of } from "rxjs";
+import { map } from "rxjs/operators";
 
 @Injectable()
 export class PointToPointInterceptor implements NestInterceptor {

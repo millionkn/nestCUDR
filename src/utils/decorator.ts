@@ -1,4 +1,4 @@
-import 'reflect-metadata';
+import "reflect-metadata";
 
 type Type<T = any> = new (...args: any[]) => T;
 

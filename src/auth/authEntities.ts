@@ -1,5 +1,5 @@
 import { Entity, Column, Index } from "typeorm";
-import { CudrBaseEntity } from "src/cudr/CudrBase.entity";
+import { CudrBaseEntity } from "@/cudr/CudrBase.entity";
 
 @Entity()
 export class AccountEntity extends CudrBaseEntity {
