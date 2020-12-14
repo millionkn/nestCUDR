@@ -1,8 +1,8 @@
-import { DynamicModule, Module, Type } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { DiscoveryModule } from '@nestjs/core';
-import { InsertCommitEmitterService } from './InsertCommitEmitter.service';
-import { GenerateIdService } from './generateId';
+import { DynamicModule, Module, Type } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { DiscoveryModule } from "@nestjs/core";
+import { InsertCommitEmitterService } from "./InsertCommitEmitter.service";
+import { GenerateIdService } from "./generateId";
 
 const klasses: any[] = []
 

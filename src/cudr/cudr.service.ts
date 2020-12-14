@@ -1,10 +1,10 @@
 import { Injectable, Type } from "@nestjs/common";
 import * as dayjs from "dayjs";
-import { BaseEntity } from "src/utils/entity";
+import { BaseEntity } from "@/utils/entity";
 import { EntityManager } from "typeorm";
 import { jsonQuery, QueryOption, MetaContext } from "./jsonQuery/jsonQuery";
 import { entityTransformerTo } from "./tools";
-import { CustomerError } from "src/customer-error";
+import { CustomerError } from "@/customer-error";
 
 @Injectable()
 export class CudrService {

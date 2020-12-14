@@ -1,8 +1,8 @@
 import { Controller, Post, Session, Body, Inject } from "@nestjs/common";
-import { UserEntity } from "src/entities";
-import { AuthService } from "src/auth/auth.service";
+import { UserEntity } from "@/entities";
+import { AuthService } from "@/auth/auth.service";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, getManager } from "typeorm";
+import { Repository } from "typeorm";
 
 @Controller('api')
 export class BusinessController {
@@ -25,9 +25,5 @@ export class BusinessController {
 
   @Post('test')
   async test() {
-    await getManager().transaction(async (manager) => {
-      // const result = await manager.save(UserEntity, { name: 'name1', username: 'username1' } as any);
-      await this.authService.setPassword(manager, 'UserEntity','20201126183802665359' as any,'password')
-    });
   }
 }

@@ -1,6 +1,6 @@
 import { Entity, Index, PrimaryColumn } from "typeorm";
 import { QueryType } from "./decorators";
-import { BaseEntity, ID } from "src/utils/entity";
+import { BaseEntity, ID } from "@/utils/entity";
 
 @Entity()
 export class CudrBaseEntity<T = any> implements BaseEntity<T> {

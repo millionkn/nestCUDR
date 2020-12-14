@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext, SetMetadata } from "@nestjs/common";
-import { Socket } from 'socket.io';
-import { ID } from "src/utils/entity";
+import { Socket } from "socket.io";
+import { ID } from "@/utils/entity";
 import { AuthService } from "./auth.service";
 
 export const CurrentUserData: () => ParameterDecorator = createParamDecorator(

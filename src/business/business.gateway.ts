@@ -1,11 +1,11 @@
-import { WebSocketGateway, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
-import { AuthService } from 'src/auth/auth.service';
-import { UserEntity } from 'src/entities';
-import { Socket } from 'socket.io';
-import { Inject, UseFilters } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CustomerErrorFilter } from 'src/customer-error.filter';
+import { WebSocketGateway, SubscribeMessage, ConnectedSocket, MessageBody } from "@nestjs/websockets";
+import { AuthService } from "@/auth/auth.service";
+import { UserEntity } from "@/entities";
+import { Socket } from "socket.io";
+import { Inject, UseFilters } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { CustomerErrorFilter } from "@/customer-error.filter";
 
 @UseFilters(CustomerErrorFilter)
 @WebSocketGateway()

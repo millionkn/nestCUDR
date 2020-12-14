@@ -1,5 +1,5 @@
 import { Controller, Post, Session } from "@nestjs/common";
-import { ID } from "src/utils/entity";
+import { ID } from "@/utils/entity";
 import { CurrentUserID, NeedLogin } from "./decorators";
 
 @Controller('api/auth')

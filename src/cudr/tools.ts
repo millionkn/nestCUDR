@@ -1,9 +1,7 @@
-import { loadDecoratedKlass, loadDecoratorData, isDecorated } from "src/utils/decorator";
+import { loadDecoratedKlass, loadDecoratorData, isDecorated } from "@/utils/decorator";
 import { CudrEntity, DeepQuery, QueryTransformer } from "./decorators";
 import { Type } from "@nestjs/common";
-import { BaseEntity } from "src/utils/entity";
-import { EntityManager } from "typeorm";
-import { CudrBaseEntity } from "./CudrBase.entity";
+import { BaseEntity } from "@/utils/entity";
 
 export function loadClassByEntityName(name: string): Type<BaseEntity> {
   const klass = loadDecoratedKlass(CudrEntity).find(klass => {

@@ -1,9 +1,9 @@
 import { Controller, Post, Body, Type, BadRequestException } from "@nestjs/common";
 import { getConnection, getMetadataArgsStorage, EntityManager } from "typeorm";
 import { CudrBaseEntity } from "./CudrBase.entity";
-import { ID } from "src/utils/entity";
+import { ID } from "@/utils/entity";
 import { loadClassByEntityName, entityTransformerFrom } from "./tools";
-import { loadDecoratedKeys, loadDecoratorData } from "src/utils/decorator";
+import { loadDecoratedKeys, loadDecoratorData } from "@/utils/decorator";
 import { DeepQuery } from "./decorators";
 
 type SaveMission = {

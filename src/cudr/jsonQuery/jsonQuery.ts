@@ -1,9 +1,9 @@
 import { CudrBaseEntity } from "../CudrBase.entity";
 import { Type, BadRequestException } from "@nestjs/common";
 import { Brackets, SelectQueryBuilder, WhereExpression } from "typeorm";
-import * as dayjs from 'dayjs';
-import { ID } from "src/utils/entity";
-import { loadDecoratorData, isDecorated } from "src/utils/decorator";
+import * as dayjs from "dayjs";
+import { ID } from "@/utils/entity";
+import { loadDecoratorData, isDecorated } from "@/utils/decorator";
 import { DeepQuery, QueryLast, QueryType } from "../decorators";
 
 export type QueryOption<T extends CudrBaseEntity<any>, K = any> = {

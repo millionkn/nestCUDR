@@ -1,9 +1,9 @@
 import { Repository, EntityManager } from "typeorm";
 import { AccountEntity } from "./authEntities";
-import { Md5 } from 'ts-md5';
-import { ID, UnpackId } from "src/utils/entity";
+import { Md5 } from "ts-md5";
+import { ID, UnpackId } from "@/utils/entity";
 import { Socket } from "socket.io";
-import { CustomerError } from "src/customer-error";
+import { CustomerError } from "@/customer-error";
 import { InjectRepository } from "@nestjs/typeorm";
 
 const socketData = new Map<string, any>();

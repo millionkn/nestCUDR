@@ -1,9 +1,9 @@
-import { loadDecoratorData, createKlassDecorator, createKeyDecorator } from "src/utils/decorator";
-import { getMetadataArgsStorage } from 'typeorm';
+import { loadDecoratorData, createKlassDecorator, createKeyDecorator } from "@/utils/decorator";
+import { getMetadataArgsStorage } from "typeorm";
 import { CudrBaseEntity } from "./CudrBase.entity";
-import { getTagetKey } from "src/utils/getTargetKey";
+import { getTagetKey } from "@/utils/getTargetKey";
 import { Type } from "@nestjs/common";
-import { ID } from "src/utils/entity";
+import { ID } from "@/utils/entity";
 
 const savedNames: string[] = [];
 export const CudrEntity = createKlassDecorator(`CudrEntity`, (klass: Type<CudrBaseEntity>) => (
