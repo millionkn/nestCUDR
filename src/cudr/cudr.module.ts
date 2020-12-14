@@ -1,7 +1,7 @@
 import { Module, DynamicModule, Controller, Post, Body, Inject, BadRequestException } from "@nestjs/common";
 import { BlobModule } from "./blob/blob.module";
 import { MissionListController } from "./MissionList.controller";
-import { loadDecoratedKlass, loadDecoratorData } from "src/utils/decorator";
+import { loadDecoratedKlass, loadDecoratorData } from "@/utils/decorator";
 import { CudrEntity } from "./decorators";
 import { CudrService } from "./cudr.service";
 import { getManager } from "typeorm";

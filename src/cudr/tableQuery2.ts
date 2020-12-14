@@ -1,8 +1,8 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
-import { ID } from "src/utils/entity";
+import { ID } from "@/utils/entity";
 import { EntityManager } from "typeorm";
-import { UserRequirementEntity, UserEntity } from "src/entities";
+import { UserRequirementEntity, UserEntity } from "@/entities";
 
 const typeSym = Symbol();
 const isArraySym = Symbol();

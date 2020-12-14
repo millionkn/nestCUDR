@@ -1,10 +1,10 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
-import { ID } from "src/utils/entity";
+import { ID } from "@/utils/entity";
 import { SelectQueryBuilder, EntityManager, getMetadataArgsStorage, getManager } from "typeorm";
-import { CustomerError } from "src/customer-error";
-import { getTagetKey } from "src/utils/getTargetKey";
-import { duplicateRemoval } from "src/utils/duplicateRemoval";
+import { CustomerError } from "@/customer-error";
+import { getTagetKey } from "@/utils/getTargetKey";
+import { duplicateRemoval } from "@/utils/duplicateRemoval";
 
 const typeSym = Symbol();
 const isArraySym = Symbol();
