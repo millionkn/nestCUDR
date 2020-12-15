@@ -1,7 +1,7 @@
 import { Repository, EntityManager } from "typeorm";
 import { AccountEntity } from "./authEntities";
 import { Md5 } from "ts-md5";
-import { ID, UnpackId } from "@/utils/entity";
+import { ID } from "@/utils/entity";
 import { Socket } from "socket.io";
 import { CustomerError } from "@/customer-error";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -12,7 +12,7 @@ export class AuthService<T extends { id: ID }> {
   @InjectRepository(AccountEntity)
   private repository!: Repository<AccountEntity>;
 
-  async setPassword(manager: EntityManager, tableName: UnpackId<T['id']>, targetId: T['id'], password: string): Promise<void> {
+  async setPassword(manager: EntityManager, tableName: T['id'] extends ID<infer X> ? X : void, targetId: T['id'], password: string): Promise<void> {
     const salt = `${Math.random()}`;
     const md5Result = Md5.hashStr(`${salt}${password}`) as string;
     const account = await manager.findOne(AccountEntity, { where: { tableName, targetId } });

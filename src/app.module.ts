@@ -13,10 +13,12 @@ import { AuthGuard } from "./auth/auth.guard";
   imports: [
     AuthModule.factory(),
     CudrModule.factory(),
-    RepositoryModule.factory(),
+    RepositoryModule.factory({
+      machineCode: 0,
+    }),
     BusinessModule,
   ],
-  providers:[
+  providers: [
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

@@ -2,7 +2,7 @@ import { DynamicModule, Module, Type } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DiscoveryModule } from "@nestjs/core";
 import { InsertCommitEmitterService } from "./InsertCommitEmitter.service";
-import { GenerateIdService } from "./generateId";
+import { GenerateIdService, MACHINE_CODE } from "./generateId";
 
 const klasses: any[] = []
 
@@ -36,15 +36,22 @@ export function GlobalRepository(): ClassDecorator {
     }),
     DiscoveryModule,
   ],
-  providers:[
+  providers: [
     InsertCommitEmitterService,
     GenerateIdService,
   ],
 })
 export class RepositoryModule {
-  static factory(): DynamicModule {
+  static factory(
+    opt:{
+      machineCode: number,
+    },
+  ): DynamicModule {
     return {
       module: RepositoryModule,
+      providers: [
+        { provide: MACHINE_CODE, useValue: opt.machineCode },
+      ],
       imports: [
         TypeOrmModule.forFeature(klasses),
       ],

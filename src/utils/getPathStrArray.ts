@@ -1,5 +1,5 @@
 
-export function getTagetKey(fun: (obj: any) => any) {
+export function getPathStrArray(fun: (obj: any) => any) {
   const paths: string[] = []
   const keyLoaderProxy: any = new Proxy<any>({}, {
     get(target, key) {
