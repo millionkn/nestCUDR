@@ -1,12 +1,9 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
 import { ID } from "@/utils/entity";
-import { EntityManager, getManager } from "typeorm";
+import { EntityManager, createQueryBuilder, SelectQueryBuilder } from "typeorm";
 import { UserRequirementEntity, UserEntity } from "@/entities";
 import { getPathStrArray } from "@/utils/getPathStrArray";
-
-const infoSym = Symbol();
-type WithInfo<T extends object, I> = T & { [infoSym]: I }
 
 const typeSym = Symbol();
 const isArraySym = Symbol();
@@ -51,14 +48,9 @@ interface JoinWhat<B extends TableQueryBody<any>> {
 }
 
 interface QueryFuns<E extends CudrBaseEntity> {
-  ref<T>(
-    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, false, false> : WrapperType<T, false, false>
-  ): Column<T, false, false>
-  ref<T>(
-    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, true, false> : WrapperType<T, true, false>,
-  ): {
-    setNullAs(nullValue: T): Column<T, false, false>
-  }
+  ref<T, isNull extends boolean>(
+    path: (entity: Wrapper<E, false, false>) => T extends CudrBaseEntity ? Wrapper<T, isNull, false> : WrapperType<T, isNull, false>
+  ): Column<T, isNull, false>
   join<T extends CudrBaseEntity, B extends TableQueryBody<T>>(
     subQuery: SubTableQuery<T, B, E>
   ): JoinWhat<B> & Column<QueryResult<B>, false, true>
@@ -96,11 +88,15 @@ type SubTableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>, O exte
 }
 
 interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBody<E>> {
-  column<T>(path: (resultColumns: QueryResultColumns<B>) => Column<T, false, false>): {
-    filter(filter: Filter<T>): TableQueryBuilder<E, B>
-    sort(mode: 'desc' | 'asc' | undefined | null): TableQueryBuilder<E, B>
+  byProperty<T, isNull extends boolean>(path: (resultColumns: QueryResultColumns<B>) => Column<T, isNull, false>): {
+    filter(filter: Filter<T> | null | undefined): {
+      assertNull(value: boolean | null | undefined): TableQueryBuilder<E, B>
+    }
+    sort(mode: 'desc' | 'asc' | undefined | null): {
+      setNullOn(allow: 'first' | 'last' | null | undefined): TableQueryBuilder<E, B>
+    }
   }
-  column<T>(path: (resultColumns: QueryResultColumns<B>) => Column<T, false, true>): {
+  byArray<T>(path: (resultColumns: QueryResultColumns<B>) => Column<T, false, true>): {
     filter: (mode: 'isEmpty' | 'notEmpty' | undefined | null) => TableQueryBuilder<E, B>
   }
   query(manager: EntityManager, opts?: {
@@ -110,41 +106,85 @@ interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBody<E
   asSubQuery<T extends CudrBaseEntity>(joinPath: (e: Wrapper<E, false, false>) => Wrapper<T, any, false>): SubTableQuery<E, B, T>
 }
 
-function tableQueryMutable<E extends CudrBaseEntity, B extends TableQueryBody<E>>(klass: Type<E>, body: B) {
+function builderAppend<B extends TableQueryBuilder<any, any>>(
+  builder: B,
+  appendFun: (qb: SelectQueryBuilder<any>) => Promise<void>,
+): B {
+  const superFun = Reflect.getOwnMetadata(builderAppend, builder) || (() => { });
+  const newBuilder = { ...builder };
+  Reflect.defineMetadata(builderAppend, async (qb: SelectQueryBuilder<any>) => {
+    await superFun(qb);
+    await appendFun(qb)
+  }, newBuilder);
+  return newBuilder;
+}
+
+export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>>(klass: Type<E>, body: B) {
   const object: TableQueryBuilder<E, B> = {
-    column<T>(pathFun: (resultColumns: QueryResultColumns<B>) => Column<T, false, boolean>) {
+    byProperty(pathFun) {
+      return {
+        filter(filter) {
+          return {
+            assertNull(allow) {
+              return builderAppend(object, async (qb) => {
+
+              });
+            }
+          }
+        },
+        sort(mode) {
+          return {
+            setNullOn(mode) {
+              return builderAppend(object, async (qb) => {
+
+              });
+            }
+          }
+        }
+      }
+    },
+    byArray(pathFun) {
       const pathStrArray = getPathStrArray(pathFun);
       return {
-        filter(filter: Filter<T> | 'isEmpty' | 'notEmpty' | undefined | null) {
-          return object;
-        },
-        sort(mode: 'desc' | 'asc' | undefined | null) {
+        filter(mode) {
           return object;
         }
       }
     },
-    asSubQuery(): any {
+    asSubQuery(joinPath) {
+      throw new Error();
     },
-    async query(manager, opt): Promise<any> {
-
+    async query(manager, opt): Promise<QueryResult<B>[]> {
+      const factory = Reflect.getOwnMetadata(builderAppend, this) || (() => { });
+      const qb = manager.createQueryBuilder().from(klass, `body`);
+      await factory(qb);
+      if (opt) {
+        qb.skip(opt.skip);
+        qb.take(opt.take);
+      }
+      // return await qb.getRawMany();
+      throw new Error();
     },
   }
   return object;
 }
 
-const r1 = tableQueryMutable(UserRequirementEntity, {
+const r1 = tableQuery(UserRequirementEntity, {
   num: ({ ref }) => ref(e => e.test)
-}).column((e) => e.num).filter({ lessOrEqual: 1 }).asSubQuery((e) => e.user);
+})
+  .byProperty((e) => e.num).filter({ lessOrEqual: 1 }).assertNull(null)
+  .asSubQuery((e) => e.user);
 
-const r2 = tableQueryMutable(UserEntity, {
+const r2 = tableQuery(UserEntity, {
   id: ({ ref }) => ref((e) => e.id),
   userEntity: ({ ref }) => ref((e) => e),
   requirementsArrayCount: ({ join }) => join(r1).count(),
   requirementsTestSum: ({ join }) => join(r1).sum(e => e.num),
   name: ({ ref }) => ref(e => e.name),
 })
-  .column((e) => e.userEntity).filter({ in: [] })
-  .column((e) => e.requirementsArrayCount).filter({ moreOrEqual: 1 })
-  .column((e) => e.name).sort('desc')
+  .byProperty((e) => e.userEntity).filter({ in: [] }).assertNull(null)
+  .byProperty((e) => e.requirementsArrayCount).filter({ moreOrEqual: 1 }).assertNull(null)
+  .byProperty((e) => e.name).sort('desc').setNullOn(null)
+
 
 
