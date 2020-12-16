@@ -24,6 +24,7 @@ export class BusinessGateway {
     },
   ) {
     const entity = await this.userRepository.findOne({ username: data.username });
-    return { id: await this.authService.login(client, 'UserEntity', entity, data.password) };
+    await this.authService.login(client, 'UserEntity', entity, data.password)
+    return { id: entity!.id };
   }
 }
