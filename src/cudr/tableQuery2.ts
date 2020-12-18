@@ -1,9 +1,10 @@
 import { CudrBaseEntity } from "./CudrBase.entity";
 import { Type } from "@nestjs/common";
 import { ID } from "@/utils/entity";
-import { EntityManager, createQueryBuilder, SelectQueryBuilder } from "typeorm";
+import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage } from "typeorm";
 import { UserRequirementEntity, UserEntity } from "@/entities";
 import { getPathStrArray } from "@/utils/getPathStrArray";
+import { CustomerError } from "@/customer-error";
 
 const typeSym = Symbol();
 const isArraySym = Symbol();
@@ -31,7 +32,7 @@ type Wrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray exten
 type Filter<T> = T extends ID ? { in: T[] }
   : T extends Date ? { lessOrEqual: Date } | { moreOrEqual: Date } | { lessOrEqual: Date, moreOrEqual: Date }
   : T extends number ? { lessOrEqual: number } | { moreOrEqual: number } | { lessOrEqual: number, moreOrEqual: number }
-  : T extends string ? { like: string[] } | { like: string } | { equal: string, } | { in: string[] }
+  : T extends string ? { like: string } | { equal: string } | { in: string[] }
   : T extends boolean ? { equal: boolean }
   : T extends CudrBaseEntity ? { in: T['id'][] }
   : never;
@@ -119,15 +120,149 @@ function builderAppend<B extends TableQueryBuilder<any, any>>(
   return newBuilder;
 }
 
+export type RefNode<T extends CudrBaseEntity> = {
+  [key in keyof T]?: T[key] extends CudrBaseEntity ? RefNode<T[key]> : {};
+}
+
+function createTools<T extends CudrBaseEntity>(klass: Type<T>) {
+  const storage = getMetadataArgsStorage();
+  let tableIndex = 0;
+  const relationTree: RefNode<T> = {};
+  const klassMap = new Map<RefNode<CudrBaseEntity>, Type<CudrBaseEntity>>();
+  klassMap.set(relationTree, klass);
+  const aliasMap = new Map<RefNode<CudrBaseEntity>, string>();
+  aliasMap.set(relationTree, `table_${tableIndex++}`);
+  const parentNodeMap = new Map<RefNode<any>, RefNode<CudrBaseEntity>>();
+  const selectMarkMap = new Map<RefNode<any>, true>();
+  const keyMap = new Map<RefNode<any>, string>();
+  function buildRelationTree(strArray: string[]) {
+    let currentNode: RefNode<any> = relationTree;
+    let lastNode: null | RefNode<any> = null;
+    for (let i = 0; i < strArray.length; i++) {
+      const property = strArray[i];
+      let nextNode = currentNode[property];
+      if (nextNode) {
+        currentNode = nextNode;
+        continue;
+      }
+      const currentKlass = klassMap.get(currentNode)!;
+      const column = storage.filterColumns(currentKlass).find((col) => col.propertyName === property);
+      const relation = storage.filterRelations(currentKlass).find((relation) => relation.propertyName === property);
+      if (relation) {
+        const target = relation.target;
+        if (!(typeof target === 'function')) {
+          throw new Error(`${strArray.slice(0, i).join('->')}关系必须使用Class进行标记`);
+        }
+        nextNode = {};
+        klassMap.set(nextNode, target as Type<any>);
+        aliasMap.set(nextNode, `table_${tableIndex++}`);
+      } if (column) {
+        nextNode = {};
+      } else {
+        throw new CustomerError(`${strArray.slice(0, i).join('->')}不存在`);
+      }
+      lastNode = currentNode;
+      currentNode = nextNode;
+      parentNodeMap.set(currentNode, lastNode);
+      keyMap.set(currentNode, property)
+    }
+  }
+
+  return {
+    isTable(node: RefNode<any>): node is RefNode<CudrBaseEntity> {
+      return aliasMap.has(node);
+    },
+    isGetId(node: RefNode<any>) {
+      return this.getKey(node) === 'id';
+    },
+    getKlass(node: RefNode<CudrBaseEntity>) {
+      return klassMap.get(node)!;
+    },
+    getKey(node: RefNode<any>) {
+      return keyMap.get(node);
+    },
+    getAlias(node: RefNode<any>) {
+      return aliasMap.get(node);
+    },
+    getParent(node: RefNode<any>) {
+      return parentNodeMap.get(node);
+    },
+    getNode(path: (obj: any) => any): RefNode<any> {
+      const pathStrArray = getPathStrArray(path);
+      buildRelationTree(pathStrArray);
+      return path(relationTree);
+    },
+    markSelect(path: (obj: any) => any) {
+      const targetNode = this.getNode(path);
+      const klass = klassMap.get(targetNode)!;
+      if (this.isTable(targetNode)) {
+        storage.filterColumns(klass).forEach((col) => {
+          const pathStrArray = getPathStrArray(path);
+          pathStrArray.push(col.propertyName);
+          buildRelationTree(pathStrArray);
+          selectMarkMap.set(path(relationTree)[col.propertyName], true);
+        });
+      } else {
+        selectMarkMap.set(path(relationTree), true);
+      }
+    },
+  }
+}
+
 export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>>(klass: Type<E>, body: B) {
-  const object: TableQueryBuilder<E, B> = {
-    byProperty(pathFun) {
+  const tools = createTools(klass);
+  for (const key in body) {
+    if (body.hasOwnProperty(key)) {
+      const element = body[key];
+      element({
+        ref(path) {
+          tools.markSelect(path);
+          return {} as any;
+        },
+        join() {
+          throw new Error()
+        }
+      })
+    }
+  }
+  const builder: TableQueryBuilder<E, B> = {
+    byProperty(path) {
       return {
         filter(filter) {
           return {
-            assertNull(allow) {
-              return builderAppend(object, async (qb) => {
+            assertNull(assert) {
+              return builderAppend(builder, async (qb) => {
+                const node = tools.getNode(path);
+                if (tools.isTable(node)) {
+                  const lastNode = tools.getParent(node);
+                  if (filter) {
+                    if ('in' in filter) {
 
+                    }
+                    if ('equal' in filter) {
+
+                    }
+                  }
+                } else {
+                  if (filter) {
+                    if ('in' in filter) {
+
+                    }
+                    if ('lessOrEqual' in filter) {
+
+                    }
+                    if ('moreOrEqual' in filter) {
+
+                    }
+                    if ('like' in filter) {
+
+                    }
+                    if ('equal' in filter) {
+
+                    }
+                  }
+
+                }
               });
             }
           }
@@ -135,7 +270,7 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>
         sort(mode) {
           return {
             setNullOn(mode) {
-              return builderAppend(object, async (qb) => {
+              return builderAppend(builder, async (qb) => {
 
               });
             }
@@ -147,7 +282,7 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>
       const pathStrArray = getPathStrArray(pathFun);
       return {
         filter(mode) {
-          return object;
+          return builder;
         }
       }
     },
@@ -166,7 +301,7 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>
       throw new Error();
     },
   }
-  return object;
+  return builder;
 }
 
 const r1 = tableQuery(UserRequirementEntity, {
