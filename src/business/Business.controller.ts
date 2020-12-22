@@ -20,7 +20,8 @@ export class BusinessController {
     },
   ) {
     const entity = await this.userRepository.findOne({ username: body.username });
-    return { id: await this.authService.login(session, 'UserEntity', entity, body.password) };
+    await this.authService.login(session, 'UserEntity', entity, body.password);
+    return { id: entity!.id };
   }
 
   @Post('test')
