@@ -1,9 +1,11 @@
-const JSONStrSym = Symbol();
+const typeSym = Symbol();
 
 declare interface JSONStr<T> extends String {
-  [JSONStrSym]: T
+  [typeSym]: {
+    name: 'JSONStr',
+    type: T,
+  }
 }
-
 declare interface JSON {
   parse<T>(jsonStr: JSONStr<T>): T
 }
@@ -19,4 +21,11 @@ Number.prototype.times = function (this: number, fun) {
     i += 1;
   }
   return ret;
+}
+
+declare interface ID<T> extends String {
+  [typeSym]: {
+    name: 'id',
+    type: T,
+  }
 }

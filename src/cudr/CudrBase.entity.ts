@@ -1,11 +1,9 @@
-import { Entity, Index, PrimaryColumn } from "typeorm";
-import { QueryType } from "./decorators";
-import { BaseEntity, ID } from "@/utils/entity";
+import { Entity } from "typeorm";
 
 @Entity()
-export class CudrBaseEntity<T = any> implements BaseEntity<T> {
-  @PrimaryColumn({ type: 'varchar', length: 36 })
-  @Index()
-  @QueryType({ type: ID })
-  id!: ID<T>;
+export class CudrBaseEntity<T = any> {
+  [typeSym]?: {
+    name: 'entity',
+    type: T,
+  }
 }
