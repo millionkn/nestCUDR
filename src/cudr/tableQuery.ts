@@ -62,6 +62,9 @@ interface QueryFuns<E extends CudrBaseEntity> {
     count(): Column<number, false, false>
     count(path: (queryColumns: QueryColumns<B>) => Column<any, false, false>): Column<number, false, false>
     sum(path: (queryColumns: QueryColumns<B>) => Column<number, false, false>): Column<number, false, false>
+    ref<T, isNull extends boolean, isArray extends boolean>(
+      path: (queryColumns: QueryColumns<B>) => Column<T, false, false>,
+    ): Column<T, isNull, isArray>
   }
 }
 
