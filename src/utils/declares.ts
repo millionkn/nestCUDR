@@ -1,7 +1,7 @@
-const typeSym = Symbol();
+const JSONStrSym = Symbol();
 
-declare interface JSONStr<T> extends String {
-  [typeSym]: {
+interface JSONStr<T> extends String {
+  [JSONStrSym]: {
     name: 'JSONStr',
     type: T,
   }
@@ -22,10 +22,27 @@ Number.prototype.times = function (this: number, fun) {
   }
   return ret;
 }
-
-declare interface ID<T> extends String {
-  [typeSym]: {
-    name: 'id',
-    type: T,
+declare interface Array<T> {
+  duplicateRemoval(fun?: (a: T) => any): T[]
+}
+Array.prototype.duplicateRemoval = function (this, fun) {
+  const set = new Set<any>();
+  const saved: any[] = [];
+  if (fun) {
+    this.forEach((a) => {
+      const key = fun(a);
+      if (!set.has(key)) {
+        saved.push(a);
+        set.add(key);
+      }
+    });
+  } else {
+    this.forEach((a) => {
+      if (!set.has(a)) {
+        saved.push(a);
+        set.add(a);
+      }
+    });
   }
+  return saved;
 }

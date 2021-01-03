@@ -1,285 +1,380 @@
-import { CudrBaseEntity } from "./CudrBase.entity";
+import { CudrBaseEntity } from "./CudrBaseEntity";
 import { Type } from "@nestjs/common";
-import { ID } from "@/utils/entity";
-import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage } from "typeorm";
-import { UserRequirementEntity, UserEntity } from "@/entities";
-import { getPathStrArray } from "@/utils/getPathStrArray";
+import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage, Any } from "typeorm";
 import { CustomerError } from "@/customer-error";
 
-const typeSym = Symbol();
-const dataSym = Symbol();
+const BaseWrapperSym = Symbol();
+const ColumnPointSym = Symbol();
+const subQuerySym = Symbol();
+const RelationLeafSym = Symbol();
 
 type Cover<T1, cudrNull extends boolean, cudrArray extends boolean,
   T2 = cudrNull extends true ? T1 | null : T1,
   T3 = cudrArray extends true ? T1[] : T2,
   > = T3
-interface WrapperPoint<T, cudrNull extends boolean, cudrArray extends boolean> {
-  [typeSym]?: {
-    name: 'WrapperPoint',
+interface BaseWrapper<T, cudrNull extends boolean, cudrArray extends boolean> {
+  [BaseWrapperSym]: {
+    name: 'BaseWrapper',
     type: T,
     isArray: cudrArray,
     isNull: cudrNull,
   },
 }
-type WrapperEntity<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray extends boolean> = {
+type EntityWrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray extends boolean> = {
   [key in keyof T]
   : T[key] extends Function ? never
-  : T[key] extends CudrBaseEntity ? Wrapper<T[key], cudrNull, cudrArray>
-  : T[key] extends CudrBaseEntity | null | undefined ? Exclude<T[key], null | undefined> extends CudrBaseEntity ? Wrapper<Exclude<T[key], null | undefined>, true, cudrArray> : never
-  : T[key] extends Array<infer X> ? X extends CudrBaseEntity ? Wrapper<X, cudrNull, true> : WrapperPoint<X, cudrNull, true>
-  : WrapperPoint<T[key], cudrNull, cudrArray>
+  : T[key] extends CudrBaseEntity ? EntityWrapper<T[key], cudrNull, cudrArray>
+  : T[key] extends CudrBaseEntity | null | undefined ? Exclude<T[key], null | undefined> extends CudrBaseEntity ? EntityWrapper<Exclude<T[key], null | undefined>, true, cudrArray> : never
+  : T[key] extends Array<infer X> ? X extends CudrBaseEntity ? EntityWrapper<X, cudrNull, true> : BaseWrapper<X, cudrNull, true>
+  : BaseWrapper<T[key], cudrNull, cudrArray>
 }
 
-type Wrapper<T, cudrNull extends boolean, cudrArray extends boolean> = T extends CudrBaseEntity ? WrapperEntity<T, cudrNull, cudrArray> & WrapperPoint<T, cudrNull, cudrArray> : WrapperPoint<T, cudrNull, cudrArray>;
+type Wrapper<T, cudrNull extends boolean, cudrArray extends boolean> = T extends CudrBaseEntity ? EntityWrapper<T, cudrNull, cudrArray> : BaseWrapper<T, cudrNull, cudrArray>;
 
-type Filter<T> = T extends ID ? { in: T[] }
-  : T extends Date ? { lessOrEqual: Date } | { moreOrEqual: Date } | { lessOrEqual: Date, moreOrEqual: Date }
-  : T extends number ? { lessOrEqual: number } | { moreOrEqual: number } | { lessOrEqual: number, moreOrEqual: number }
-  : T extends string ? { like: string } | { equal: string } | { in: string[] }
+type Filter<T> = {} | T extends Date ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T }
+  : T extends number ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T }
+  : T extends string ? { like: T } | { equal: T } | { in: T[] }
   : T extends boolean ? { equal: boolean }
-  : T extends CudrBaseEntity ? { in: T['id'][] }
   : never;
 
-interface Column<T, cudrNull extends boolean, cudrArray extends boolean> {
-  [typeSym]?: {
-    name: 'Column',
+interface ColumnPoint<T, cudrNull extends boolean, cudrArray extends boolean> {
+  [ColumnPointSym]?: {
+    name: 'ColumnPoint',
     type: T,
-    isNull: cudrNull,
     isArray: cudrArray,
-  }
-  [dataSym]: {
-    path: (entity: Wrapper<CudrBaseEntity<any>, false, false>) => WrapperPoint<any, any, any>
-  }
+    isNull: cudrNull,
+  },
 }
 
-interface QueryFuns<E extends CudrBaseEntity> {
+interface QueryFuns<Entity extends CudrBaseEntity> {
   ref<T, isNull extends boolean, isArray extends boolean>(
-    path: (entity: Wrapper<E, false, false>) => WrapperPoint<T, isNull, isArray>
-  ): Column<T, isNull, isArray>
-  join<T extends CudrBaseEntity, B extends TableQueryBody<T>>(
-    subQuery: SubTableQuery<T, B, E>
-  ): Column<QueryResult<B>, false, true> & {
-    count(): Column<number, false, false>
-    count(path: (queryColumns: QueryColumns<B>) => Column<any, false, false>): Column<number, false, false>
-    sum(path: (queryColumns: QueryColumns<B>) => Column<number, false, false>): Column<number, false, false>
-    ref<T, isNull extends boolean, isArray extends boolean>(
-      path: (queryColumns: QueryColumns<B>) => Column<T, false, false>,
-    ): Column<T, isNull, isArray>
+    path: (
+      (entity: EntityWrapper<Entity, false, false>) => EntityWrapper<T, isNull, isArray>
+    ) | (
+        (entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, isNull, isArray>
+      )
+  ): ColumnPoint<T, isNull, isArray>
+  join<E extends CudrBaseEntity, Body extends TableQueryBody<E>>(
+    subQuery: SubTableQuery<E, Body, Entity>
+  ): ColumnPoint<QueryResult<Body>, false, true> & {
+    count(): ColumnPoint<number, false, false>
+    count<T>(
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<T, boolean, boolean>,
+    ): ColumnPoint<number, false, false>
+    sum(
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<number, false, false>,
+    ): ColumnPoint<number, false, false>
+    ref<T>(
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<T, boolean, boolean>,
+    ): ColumnPoint<T, false, true>
   }
 }
 
-type TableQueryBody<E extends CudrBaseEntity<any>> = {
-  [key: string]: (funs: QueryFuns<E>) => Column<any, any, any>
+type TableQueryBody<Entity extends CudrBaseEntity<any>> = {
+  [key: string]: (funs: QueryFuns<Entity>) => ColumnPoint<any, boolean, boolean>
 }
-type QueryColumns<T extends TableQueryBody<any>> = {
-  [key in keyof T]: ReturnType<T[key]>
-}
-export type Simple<T extends CudrBaseEntity> = {
+
+export type Simple<Entity extends CudrBaseEntity> = {
   [key in {
-    [key in keyof T]: T[key] extends null | undefined | infer X
+    [key in keyof Entity]: Entity[key] extends null | undefined | infer X
     ? X extends CudrBaseEntity ? never
     : X extends CudrBaseEntity[] ? never
     : key
     : never
-  }[keyof T]]: T[key]
+  }[keyof Entity]]: Entity[key]
 }
-type QueryResult<B extends TableQueryBody<any>> = {
-  [key in keyof B]: ReturnType<B[key]> extends Column<infer T, infer isNull, infer isArray> ?
+type QueryResult<Body extends TableQueryBody<any>> = {
+  [key in keyof Body]: ReturnType<Body[key]> extends Wrapper<infer T, infer isNull, infer isArray> ?
   T extends CudrBaseEntity ? Cover<Simple<T>, isNull, isArray> : Cover<T, isNull, isArray>
   : never
 }
 
-type SubTableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>, O extends CudrBaseEntity> = {
-  [typeSym]?: {
+type SubTableQuery<Entity extends CudrBaseEntity, Body extends TableQueryBody<Entity>, Out extends CudrBaseEntity> = {
+  [subQuerySym]?: {
     name: 'subQuery'
-    klass: E
-    body: B,
-    outType: O,
+    klass: Entity
+    body: Body,
+    outType: Out,
   }
 }
 
-interface TableQueryBuilder<E extends CudrBaseEntity, B extends TableQueryBody<E>> {
-  [dataSym]: {
-    factoryFun: (
-      qb: SelectQueryBuilder<any>,
-      tools: QueryTools,
-      columnNode: (columnRef: (queryColumns: QueryColumns<B>) => Column<any, any, false>) => RefNode<any>
-    ) => Promise<void>,
-  },
-  byProperty<T, isNull extends boolean>(path: (queryColumns: QueryColumns<B>) => Column<T, isNull, false>): {
+interface TableQueryBuilder<Entity extends CudrBaseEntity, Body extends TableQueryBody<Entity>> {
+  factory: (
+    qb: SelectQueryBuilder<any>,
+    tools: QueryTools<Entity>,
+  ) => Promise<void>,
+  byProperty<T, isNull extends boolean>(path: (body: Body) => (funs: QueryFuns<Entity>) => ColumnPoint<T, isNull, false>): {
     filter(filter: Filter<T> | null | undefined): {
-      assertNull(value: boolean | null | undefined): TableQueryBuilder<E, B>
+      assert(value: 'notNull' | 'allowNull' | 'isNull'): TableQueryBuilder<Entity, Body>
     }
     sort(sortMode: 'DESC' | 'ASC' | undefined | null): {
-      setNullOn(nullMode: "NULLS FIRST" | "NULLS LAST" | null | undefined): TableQueryBuilder<E, B>
+      setNullOn(nullMode: "NULLS FIRST" | "NULLS LAST" | null | undefined): TableQueryBuilder<Entity, Body>
     }
   }
-  byArray<T>(path: (queryColumns: QueryColumns<B>) => Column<T, false, true>): {
-    filter: (mode: 'isEmpty' | 'notEmpty' | undefined | null) => TableQueryBuilder<E, B>
+  byArray<T>(path: (body: Body) => (funs: QueryFuns<Entity>) => ColumnPoint<T, false, true>): {
+    filter: (mode: 'isEmpty' | 'notEmpty' | undefined | null) => TableQueryBuilder<Entity, Body>
   }
   query(manager: EntityManager, opts?: {
     skip?: number,
     take?: number,
-  }): Promise<QueryResult<B>[]>;
-  asSubQuery<T extends CudrBaseEntity>(joinPath: (e: Wrapper<E, false, false>) => Wrapper<T, any, false>): SubTableQuery<E, B, T>
+  }): Promise<QueryResult<Body>[]>;
+  asSubQuery<T extends CudrBaseEntity>(
+    joinPath: (e: Wrapper<Entity, false, false>) => Wrapper<T, boolean, false>,
+  ): SubTableQuery<Entity, Body, T>
 }
 
-function builderAppend<Builder extends TableQueryBuilder<any, any>>(
-  builder: Builder,
+function builderAppend<Entity extends CudrBaseEntity<any>, Body extends TableQueryBody<Entity>>(
+  builder: TableQueryBuilder<Entity, Body>,
   appendFun: (
     qb: SelectQueryBuilder<any>,
-    tools: QueryTools,
-    columnNode: (columnRef: (queryColumns: QueryColumns<any>) => Column<any, any, false>) => RefNode<any>
+    tools: QueryTools<Entity>,
   ) => Promise<void>,
-): Builder {
+): TableQueryBuilder<Entity, Body> {
   return {
     ...builder,
-    [dataSym]: {
-      factoryFun: async (...args) => {
-        await builder[dataSym].factoryFun(...args);
-        await appendFun(...args);
-      },
-    }
+    factory: async (...args) => {
+      await builder.factory(...args);
+      await appendFun(...args);
+    },
   };
 }
 
-type RefNode<T extends CudrBaseEntity> = {
-  [key in keyof T]?: T[key] extends CudrBaseEntity ? RefNode<T[key]> : {};
+type LeafNode<T> = {
+  [RelationLeafSym]?: {
+    name: 'RelationLeaf',
+    type: T,
+  }
 }
 
-type QueryTools = ReturnType<typeof createTools>;
+type RelationNode<T extends CudrBaseEntity> = {
+  [key in keyof T]?: T[key] extends CudrBaseEntity ? RelationNode<T[key]> : LeafNode<T[key]>;
+}
+interface QueryTools<Entity extends CudrBaseEntity> {
+  isTable(node: RelationNode<CudrBaseEntity> | LeafNode<any>): node is RelationNode<CudrBaseEntity<any>>
+  isIdNode(node: RelationNode<CudrBaseEntity> | LeafNode<any>): boolean
+  getKlass(node: RelationNode<CudrBaseEntity>): Type<CudrBaseEntity<any>>
+  getKey(node: RelationNode<CudrBaseEntity> | LeafNode<any>): string
+  getAlias(node: RelationNode<CudrBaseEntity>): string
+  getParent(node: LeafNode<any>): RelationNode<CudrBaseEntity<any>>
+  getParent(node: RelationNode<CudrBaseEntity>): RelationNode<CudrBaseEntity<any>> | undefined
+  getParent(node: RelationNode<CudrBaseEntity> | LeafNode<any>): RelationNode<CudrBaseEntity<any>> | undefined
+  getNode<E extends CudrBaseEntity>(path: (entity: EntityWrapper<Entity, false, false>) => EntityWrapper<E, boolean, boolean>): RelationNode<E>
+  getNode<T>(path: (entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, boolean, boolean>): LeafNode<T>
+  getNode<T>(path:
+    | ((entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, boolean, boolean>)
+    | ((entity: EntityWrapper<Entity, false, false>) => EntityWrapper<T, boolean, boolean>)
+  ): LeafNode<T> | RelationNode<T>
+  generateParamAlias(): string
+  build(qb: SelectQueryBuilder<any>): void
+}
+const getNodeSym = Symbol();
 
-function createTools<T extends CudrBaseEntity>(klass: Type<T>) {
-  const storage = getMetadataArgsStorage();
+const storage = getMetadataArgsStorage();
+function getRelationArgs<E extends CudrBaseEntity>(klass: Type<E>, key: string) {
+  const arg = storage.filterRelations(klass).find((relation) => relation.propertyName === key);
+  return arg;
+}
+function getColumnArgs<E extends CudrBaseEntity>(klass: Type<E>, key: string) {
+  const arg = storage.filterColumns(klass).find((col) => col.propertyName === key);
+  return arg;
+}
+
+function createTools<Entity extends CudrBaseEntity>(klass: Type<Entity>): QueryTools<Entity> {
+
   let tableIndex = 0;
-  const relationTree: RefNode<T> = {};
-  const klassMap = new Map<RefNode<CudrBaseEntity>, Type<CudrBaseEntity>>();
-  klassMap.set(relationTree, klass);
-  const aliasMap = new Map<RefNode<CudrBaseEntity>, string>();
-  aliasMap.set(relationTree, `table_${tableIndex++}`);
-  const parentNodeMap = new Map<RefNode<any>, RefNode<CudrBaseEntity>>();
-  const selectMarkMap = new Map<RefNode<any>, true>();
-  const keyMap = new Map<RefNode<any>, string>();
-  function buildRelationTree(strArray: string[], currentNode: RefNode<any> = relationTree) {
-    let lastNode: null | RefNode<any> = null;
-    for (let i = 0; i < strArray.length; i++) {
-      const property = strArray[i];
-      let nextNode = currentNode[property];
-      if (nextNode) {
-        currentNode = nextNode;
-        continue;
-      }
-      const currentKlass = klassMap.get(currentNode)!;
-      const column = storage.filterColumns(currentKlass).find((col) => col.propertyName === property);
-      const relation = storage.filterRelations(currentKlass).find((relation) => relation.propertyName === property);
-      if (relation) {
-        const target = relation.target;
-        if (!(typeof target === 'function')) {
-          throw new Error(`${strArray.slice(0, i).join('->')}关系必须使用Class进行标记`);
+  const rootRelationNode = {} as RelationNode<Entity>;
+  const klassMap = new Map<RelationNode<CudrBaseEntity>, Type<CudrBaseEntity>>();
+  klassMap.set(rootRelationNode, klass);
+  const aliasMap = new Map<RelationNode<CudrBaseEntity>, string>();
+  aliasMap.set(rootRelationNode, `table_${tableIndex++}`);
+  const parentNodeMap = new Map<RelationNode<CudrBaseEntity> | LeafNode<any>, RelationNode<CudrBaseEntity>>();
+  const selectMarkMap = new Map<LeafNode<any>, true>();
+  const keyMap = new Map<RelationNode<CudrBaseEntity> | LeafNode<any>, string>();
+  function isRelationNode<T extends CudrBaseEntity>(node: RelationNode<T> | LeafNode<any>): node is RelationNode<T> {
+    return klassMap.has(node as any);
+  }
+  function createRelationNodeProxy<T extends CudrBaseEntity>(node: RelationNode<T> | LeafNode<any>, stack: string[]): Required<RelationNode<T>> {
+    return new Proxy<any>(node, {
+      has() { return true; },
+      get(currentNode: RelationNode<T> | LeafNode<any>, key: Extract<keyof typeof currentNode, string>) {
+        if (key === getNodeSym) { return currentNode; }
+        if (currentNode[key]) { return createRelationNodeProxy(currentNode[key] as any, [...stack, key]); }
+        if (!isRelationNode(currentNode)) { throw new CustomerError(`${stack.join('->')}不存在`); }
+        const currentKlass = klassMap.get(currentNode)!;
+        const column = getColumnArgs(currentKlass, key);
+        const relation = getRelationArgs(currentKlass, key);
+        const nextNode = {};
+        if (relation) {
+          if (!(typeof relation.type === 'function')) {
+            throw new Error(`${stack.join('->')}关系必须使用Class进行标记`);
+          }
+          const target: Type<any> = relation.type();
+          currentNode[key] = nextNode as any;
+          klassMap.set(nextNode, target);
+          aliasMap.set(nextNode, `table_${tableIndex++}`);
+          parentNodeMap.set(nextNode, currentNode);
+          keyMap.set(nextNode, key)
+        } else if (column) {
+          currentNode[key] = nextNode as any;
+          parentNodeMap.set(nextNode, currentNode);
+          keyMap.set(nextNode, key)
+        } else {
+          throw new CustomerError(`${stack.join('->')}不存在`);
         }
-        nextNode = {};
-        klassMap.set(nextNode, target as Type<any>);
-        aliasMap.set(nextNode, `table_${tableIndex++}`);
-      } if (column) {
-        nextNode = {};
-      } else {
-        throw new CustomerError(`${strArray.slice(0, i).join('->')}不存在`);
+        return createRelationNodeProxy(nextNode, [...stack, key]);
       }
-      lastNode = currentNode;
-      currentNode = nextNode;
-      parentNodeMap.set(currentNode, lastNode);
-      keyMap.set(currentNode, property)
-    }
+    });
   }
   let paramsIndex = 0;
+  const coverFuns = new Array<(raw: any, out: any) => void>();
   return {
-    isTable(node: RefNode<any>): node is RefNode<CudrBaseEntity> {
-      return aliasMap.has(node);
+    isTable(node): node is RelationNode<CudrBaseEntity> {
+      return isRelationNode(node);
     },
-    isGetId(node: RefNode<any>) {
-      return this.getKey(node) === 'id';
-    },
-    getKlass(node: RefNode<CudrBaseEntity>) {
-      return klassMap.get(node)!;
-    },
-    getKey(node: RefNode<any>) {
-      return keyMap.get(node);
-    },
-    getAlias(node: RefNode<any>) {
-      return aliasMap.get(node);
-    },
-    getParent(node: RefNode<any>) {
-      return parentNodeMap.get(node);
-    },
-    getNode(path: (entity: Wrapper<T, false, false>) => any, node: RefNode<any> = relationTree): RefNode<any> {
-      const pathStrArray = getPathStrArray(path);
-      buildRelationTree(pathStrArray, node);
-      return path(node as Wrapper<T, false, false>);
-    },
-    markSelect(node: RefNode<any>) {
-      const klass = klassMap.get(node)!;
-      if (this.isTable(node)) {
-        storage.filterColumns(klass).forEach((col) => {
-          const targetNode = this.getNode((e: any) => e[col.propertyName], node)
-          selectMarkMap.set(targetNode, true);
-        });
+    isIdNode(node) {
+      const parentNode = this.getParent(node);
+      if (!parentNode) { return false; }
+      const klass = this.getKlass(parentNode);
+      const key = this.getKey(node);
+      const column = getColumnArgs(klass, key);
+      const relation = getRelationArgs(klass, key);
+      if (column) {
+        return !!column.options.primary;
+      } else if (relation) {
+        return !!relation.options.primary;
       } else {
-        selectMarkMap.set(node, true);
+        throw new Error('未知错误');
       }
     },
+    getKlass(node) {
+      return klassMap.get(node)!;
+    },
+    getKey(node) {
+      return keyMap.get(node)!;
+    },
+    getAlias(node) {
+      return aliasMap.get(node)!;
+    },
+    getParent(node: RelationNode<CudrBaseEntity> | LeafNode<any>) {
+      const result: any = parentNodeMap.get(node)
+      return result;
+    },
+    getNode(path: any) {
+      const proxy = createRelationNodeProxy(rootRelationNode, ['()']);
+      const lastProxy = path(proxy);
+      return lastProxy[getNodeSym];
+    },
+    // markSelect(node: RelationNode<any> | LeafNode<any>, cb: (result: any, out: any) => void) {
+    //   // throw new Error('未实现markSelect')
+    //   if (this.isTable(node)) {
+    //     coverFuns.push((raw, out) => {
+
+    //     })
+    //     const klass = klassMap.get(node)!;
+    //     storage.filterColumns(klass).forEach((colMeta) => {
+    //       const proxy: any = createRelationNodeProxy(node, ['']);
+    //       const targetNode: LeafNode<any> = proxy[colMeta.propertyName][getNodeSym]
+    //       selectMarkMap.set(targetNode, true);
+    //     });
+
+    //   } else {
+    //     selectMarkMap.set(node, true);
+    //     coverFuns.push((raw, out) => {
+    //       cb(raw,out)
+    //     })
+    //   }
+    // },
     generateParamAlias() {
       return `params_${paramsIndex++}`;
     },
+    build(qb) {
+      throw new Error('未实现build')
+    }
   }
 }
 
-export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>>(klass: Type<E>, body: B) {
-  const builder: TableQueryBuilder<E, B> = {
-    [dataSym]: {
-      factoryFun: async () => { },
+export function tableQuery<E extends CudrBaseEntity, Body extends TableQueryBody<E>>(klass: Type<E>, body: Body) {
+  const builder: TableQueryBuilder<E, Body> = {
+    factory: async (qb, tools) => tools.build(qb),
+    asSubQuery(joinPath) {
+      throw new Error('未实现asSubQuery');
+    },
+    async query(manager, opt): Promise<QueryResult<Body>[]> {
+      const tools = createTools(klass);
+      const rootAlias = tools.getAlias(tools.getNode((e) => e));
+      const qb = manager.createQueryBuilder().from(klass, rootAlias);
+
+      for (const key in body) {
+        if (body.hasOwnProperty(key)) {
+          const element = body[key];
+          element({
+            ref(path) {
+              throw new Error('未实现path');
+            },
+            join(subQuery) {
+              throw new Error('未实现join');
+            }
+          })
+        }
+      }
+
+      await this.factory(qb, tools);
+      if (opt) {
+        qb.skip(opt.skip);
+        qb.take(opt.take);
+      }
+      console.log(qb.getQueryAndParameters());
+      throw new Error('未实现query');
     },
     byProperty(path) {
       return {
         filter(filter: Filter<any> | null | undefined) {
           return {
-            assertNull(assert) {
-              return builderAppend(builder, async (qb, tools, getNode) => {
-                const node = getNode(path);
-                let targetRefStr: string;
-                if (tools.isTable(node)) {
-                  const parentNode = tools.getParent(node);
-                  targetRefStr = parentNode ? `${tools.getAlias(parentNode)}.${tools.getKey(node)}` : `${tools.getAlias(node)}.id`;
-                } else {
-                  const parentNode = tools.getParent(node)!;
-                  targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
-                }
-                if (assert === true) {
-                  qb.andWhere(`${targetRefStr} is null`);
-                } else if (assert === false) {
-                  qb.andWhere(`${targetRefStr} is not null`);
-                }
-                if (filter) {
-                  if ('in' in filter) {
-                    const paramAlias = tools.generateParamAlias();
-                    qb.andWhere(`${targetRefStr} in (:...${paramAlias})`, { [paramAlias]: filter.in });
+            assert(assert) {
+              return builderAppend(builder, async (qb, tools) => {
+                path(body)({
+                  ref(path) {
+                    const node = tools.getNode(path);
+                    let targetRefStr: string;
+                    if (tools.isTable(node)) {
+                      const parentNode = tools.getParent(node);
+                      targetRefStr = parentNode ? `${tools.getAlias(parentNode)}.${tools.getKey(node)}` : `${tools.getAlias(node)}.id`;
+                    } else {
+                      const parentNode = tools.getParent(node)!;
+                      targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
+                    }
+                    if(assert === 'isNull'){
+                      qb.andWhere(`${targetRefStr} is null`)
+                    }else if (){}
+                    if (filter) {
+                      if ('in' in filter && filter.in !== undefined && filter.in !== null) {
+                        const paramAlias = tools.generateParamAlias();
+                        qb.andWhere(`${targetRefStr} in (:...${paramAlias})`, { [paramAlias]: filter.in });
+                      }
+                      if ('lessOrEqual' in filter && filter.lessOrEqual !== undefined && filter.lessOrEqual !== null) {
+                        const paramAlias = tools.generateParamAlias();
+                        qb.andWhere(`${targetRefStr} <= :${paramAlias}`, { [paramAlias]: filter.lessOrEqual });
+                      }
+                      if ('moreOrEqual' in filter && filter.moreOrEqual !== undefined && filter.moreOrEqual !== null) {
+                        const paramAlias = tools.generateParamAlias();
+                        qb.andWhere(`${targetRefStr} >= :${paramAlias}`, { [paramAlias]: filter.moreOrEqual });
+                      }
+                      if ('like' in filter && filter.like !== undefined && filter.like !== null) {
+                        const paramAlias = tools.generateParamAlias();
+                        qb.andWhere(`${targetRefStr} like :${paramAlias}`, { [paramAlias]: filter.like });
+                      }
+                      if ('equal' in filter && filter.equal !== undefined && filter.equal !== null) {
+                        const paramAlias = tools.generateParamAlias();
+                        qb.andWhere(`${targetRefStr} = :${paramAlias}`, { [paramAlias]: filter.equal });
+                      }
+                    }
+                    return {};
+                  },
+                  join() {
+                    throw new Error('未实现join')
                   }
-                  if ('lessOrEqual' in filter) {
-                    const paramAlias = tools.generateParamAlias();
-                    qb.andWhere(`${targetRefStr} <= ${paramAlias}`, { [paramAlias]: filter.lessOrEqual });
-                  }
-                  if ('moreOrEqual' in filter) {
-                    const paramAlias = tools.generateParamAlias();
-                    qb.andWhere(`${targetRefStr} >= ${paramAlias}`, { [paramAlias]: filter.moreOrEqual });
-                  }
-                  if ('like' in filter) {
-                    const paramAlias = tools.generateParamAlias();
-                    qb.andWhere(`${targetRefStr} like ${paramAlias}`, { [paramAlias]: filter.like });
-                  }
-                  if ('equal' in filter) {
-                    const paramAlias = tools.generateParamAlias();
-                    qb.andWhere(`${targetRefStr} = ${paramAlias}`, { [paramAlias]: filter.equal });
-                  }
-                }
+                })
+
               });
             }
           }
@@ -287,17 +382,26 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>
         sort(sortMode) {
           return {
             setNullOn(nullMode) {
-              return builderAppend(builder, async (qb, tools, getNode) => {
-                const node = getNode(path);
-                let targetRefStr: string;
-                if (tools.isTable(node)) {
-                  const parentNode = tools.getParent(node);
-                  targetRefStr = parentNode ? `${tools.getAlias(parentNode)}.${tools.getKey(node)}` : `${tools.getAlias(node)}.id`;
-                } else {
-                  const parentNode = tools.getParent(node)!;
-                  targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
-                }
-                qb.orderBy(`${targetRefStr}`, sortMode || undefined, nullMode || undefined);
+              return builderAppend(builder, async (qb, tools) => {
+                path(body)({
+                  ref(path) {
+                    const node = tools.getNode(path);
+                    let targetRefStr: string;
+                    if (tools.isTable(node)) {
+                      const parentNode = tools.getParent(node);
+                      targetRefStr = parentNode ? `${tools.getAlias(parentNode)}.${tools.getKey(node)}` : `${tools.getAlias(node)}.id`;
+                    } else {
+                      const parentNode = tools.getParent(node)!;
+                      targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
+                    }
+                    qb.orderBy(`${targetRefStr}`, sortMode || undefined, nullMode || undefined);
+                    return {};
+                  },
+                  join(a) {
+                    throw new Error('未实现join')
+                  }
+                })
+
               });
             }
           }
@@ -308,65 +412,11 @@ export function tableQuery<E extends CudrBaseEntity, B extends TableQueryBody<E>
       return {
         filter(mode) {
           return builderAppend(builder, async (qb, tools) => {
-            throw new Error();
+            throw new Error('未实现builderAppend')
           });
         }
       }
     },
-    asSubQuery(joinPath) {
-      throw new Error();
-    },
-    async query(manager, opt): Promise<QueryResult<B>[]> {
-      const tools = createTools(klass);
-      const queryColumns: QueryColumns<B> = {} as any;
-      for (const key in body) {
-        if (body.hasOwnProperty(key)) {
-          const element = body[key];
-          queryColumns[key] = element({
-            ref(path) {
-              tools.markSelect(tools.getNode(path));
-              return {
-                [dataSym]: {
-                  path: (entity) => path(entity as any),
-                }
-              };
-            },
-            join(subQuery) {
-              throw new Error()
-            }
-          }) as ReturnType<B[typeof key]>;
-        }
-      }
-      const factory = this[dataSym].factoryFun;
-      const qb = manager.createQueryBuilder().from(klass, `body`);
-      await factory(qb, tools, (ref) => tools.getNode(ref(queryColumns)[dataSym].path));
-      if (opt) {
-        qb.skip(opt.skip);
-        qb.take(opt.take);
-      }
-      // return await qb.getRawMany();
-      throw new Error();
-    },
   }
   return builder;
 }
-
-const r1 = tableQuery(UserRequirementEntity, {
-  num: ({ ref }) => ref(e => e.test)
-})
-  .byProperty((e) => e.num).filter({ lessOrEqual: 1 }).assertNull(null)
-  .asSubQuery((e) => e.user);
-
-const r2 = tableQuery(UserEntity, {
-  id: ({ ref }) => ref((e) => e.id),
-  userEntity: ({ ref }) => ref((e) => e),
-  requirementsArrayCount: ({ join }) => join(r1).count(),
-  requirementsTestSum: ({ join }) => join(r1).sum(e => e.num),
-  name: ({ ref }) => ref(e => e.name),
-})
-  .byProperty((e) => e.userEntity).filter({ in: [] }).assertNull(null)
-  .byProperty((e) => e.requirementsArrayCount).filter({ moreOrEqual: 1 }).assertNull(null)
-  .byProperty((e) => e.name).sort('DESC').setNullOn(null)
-
-
-

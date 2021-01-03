@@ -1,20 +1,14 @@
 import { DynamicModule, Module, Type } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DiscoveryModule } from "@nestjs/core";
-import { InsertCommitEmitterService } from "./InsertCommitEmitter.service";
-import { GenerateIdService, MACHINE_CODE } from "./generateId";
-
-const klasses: any[] = []
+import { createKlassDecorator, loadDecoratedKlass } from "@/utils/decorator";
 
 /**
 自动添加到TypeOrmModule.forFeature中
 
 被修饰的实体会在全局模块产生对应的Response
 */
-export function GlobalRepository(): ClassDecorator {
-
-  return (klass) => { klasses.push(klass); }
-}
+export const GlobalRepository = createKlassDecorator(`GlobalRepository`, () => () => { })
 
 /**
 功能是允许其他模块无需导入即可使用各个实体的Response
@@ -37,23 +31,17 @@ export function GlobalRepository(): ClassDecorator {
     DiscoveryModule,
   ],
   providers: [
-    InsertCommitEmitterService,
-    GenerateIdService,
   ],
 })
 export class RepositoryModule {
   static factory(
-    opt:{
-      machineCode: number,
-    },
   ): DynamicModule {
     return {
       module: RepositoryModule,
       providers: [
-        { provide: MACHINE_CODE, useValue: opt.machineCode },
       ],
       imports: [
-        TypeOrmModule.forFeature(klasses),
+        TypeOrmModule.forFeature(loadDecoratedKlass(GlobalRepository)),
       ],
       exports: [
         TypeOrmModule,

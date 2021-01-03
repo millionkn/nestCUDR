@@ -1,22 +1,20 @@
-import { Entity, Column, OneToOne, ManyToOne, OneToMany, ManyToMany, JoinTable, JoinColumn } from "typeorm"
-import { GlobalRepository } from "./repository/repository.module"
-import { CudrBaseEntity } from "./cudr/CudrBase.entity"
-import { DeepQuery, CudrEntity } from "./cudr/decorators"
+import { Entity, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, PrimaryColumn, CreateDateColumn } from "typeorm"
+import { GlobalRepository } from "@/repository/repository.module"
+import { CudrBaseEntity, CudrEntity } from "@/cudr/CudrBaseEntity"
+import { AuthableEntity } from "@/auth/entities"
 
 @Entity()
 @GlobalRepository()
 @CudrEntity()
-export class UserEntity extends CudrBaseEntity<'UserEntity'> {
+export class UserEntity extends AuthableEntity<'UserEntity'> {
   @Column()
   name!: string
   @Column()
   username!: string;
-  @DeepQuery()
   @OneToMany(() => UserRequirementEntity, (req) => req.user)
   requirements!: UserRequirementEntity[];
   @JoinTable()
   @ManyToMany(() => TGroupEntity, (obj) => obj.users, { cascade: true })
-  @DeepQuery()
   groups!: TGroupEntity[];
   @Column({ name: 'num' })
   num23!: number;
@@ -26,9 +24,8 @@ export class UserEntity extends CudrBaseEntity<'UserEntity'> {
 @GlobalRepository()
 @CudrEntity()
 export class TGroupEntity extends CudrBaseEntity<'TGroupEntity'> {
-  @Column()
+  @PrimaryColumn()
   name!: string
-  @DeepQuery()
   @ManyToMany(() => UserEntity, (obj) => obj.groups)
   users!: UserEntity[];
 }
@@ -37,24 +34,22 @@ export class TGroupEntity extends CudrBaseEntity<'TGroupEntity'> {
 @GlobalRepository()
 @CudrEntity()
 export class UserRequirementEntity extends CudrBaseEntity<'UserRequirementEntity'> {
-  @DeepQuery()
-  @ManyToOne(() => UserEntity)
+  @CreateDateColumn({ primary: true })
+  date!: Date;
+
+  @ManyToOne(() => UserEntity, { primary: true })
   user!: null | UserEntity
-  @OneToOne(() => RequirementLogEntity)
-  @JoinColumn()
-  @DeepQuery()
-  lastLog!: InstanceType<typeof RequirementLogEntity>
-  @Column({ name: 'test2' })
-  test!: number;
 }
 
 @Entity()
 @GlobalRepository()
 @CudrEntity()
 export class RequirementLogEntity extends CudrBaseEntity<'RequirementLogEntity'> {
-  @Column()
-  name!: string
-  @DeepQuery()
-  @ManyToOne(() => UserRequirementEntity)
+  @CreateDateColumn({ primary: true })
+  date!: Date;
+  @ManyToOne(() => UserRequirementEntity, { primary: true })
   requirement!: UserRequirementEntity;
+
+  @Column()
+  name!: string;
 }

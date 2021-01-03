@@ -2,8 +2,7 @@ import { DynamicModule, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
-import { AuthGateway } from "./auth.gateway";
-import { AccountEntity } from "./authEntities";
+import { AccountEntity } from "./entities";
 
 @Module({
   imports: [
@@ -12,7 +11,6 @@ import { AccountEntity } from "./authEntities";
     ])
   ],
   providers: [
-    AuthGateway,
     AuthService,
   ],
   controllers: [
