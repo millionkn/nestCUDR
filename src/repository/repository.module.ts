@@ -25,7 +25,7 @@ export const GlobalRepository = createKlassDecorator(`GlobalRepository`, () => (
       synchronize: true,
       autoLoadEntities: true,
       logging: [
-        'query',
+        'error',
       ]
     }),
     DiscoveryModule,

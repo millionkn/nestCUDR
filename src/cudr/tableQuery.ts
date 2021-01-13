@@ -1,58 +1,63 @@
 import { CudrBaseEntity } from "./CudrBaseEntity";
 import { Type } from "@nestjs/common";
-import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage, Any } from "typeorm";
+import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage } from "typeorm";
 import { CustomerError } from "@/customer-error";
-
-const BaseWrapperSym = Symbol();
-const ColumnPointSym = Symbol();
-const subQuerySym = Symbol();
-const RelationLeafSym = Symbol();
+import { ID } from "@/utils/id";
 
 type Cover<T1, cudrNull extends boolean, cudrArray extends boolean,
   T2 = cudrNull extends true ? T1 | null : T1,
   T3 = cudrArray extends true ? T1[] : T2,
   > = T3
+
+const WrapperPointSym = Symbol()
+type WrapperPoint<T, cudrNull extends boolean, cudrArray extends boolean> = {
+  [WrapperPointSym]: {
+    type: T,
+    isArray: cudrArray,
+    isNull: cudrNull,
+  }
+}
+
+const BaseWrapperSym = Symbol();
 interface BaseWrapper<T, cudrNull extends boolean, cudrArray extends boolean> {
   [BaseWrapperSym]: {
-    name: 'BaseWrapper',
     type: T,
     isArray: cudrArray,
     isNull: cudrNull,
   },
 }
+
 type EntityWrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray extends boolean> = {
   [key in keyof T]
   : T[key] extends Function ? never
-  : T[key] extends CudrBaseEntity ? EntityWrapper<T[key], cudrNull, cudrArray>
-  : T[key] extends CudrBaseEntity | null | undefined ? Exclude<T[key], null | undefined> extends CudrBaseEntity ? EntityWrapper<Exclude<T[key], null | undefined>, true, cudrArray> : never
-  : T[key] extends Array<infer X> ? X extends CudrBaseEntity ? EntityWrapper<X, cudrNull, true> : BaseWrapper<X, cudrNull, true>
+  : T[key] extends CudrBaseEntity ? Wrapper<T[key], cudrNull, cudrArray>
+  : T[key] extends Array<infer X> ? Wrapper<X, cudrNull, true>
+  : T[key] extends null | undefined | infer X ? Wrapper<X, true, cudrArray>
   : BaseWrapper<T[key], cudrNull, cudrArray>
 }
 
-type Wrapper<T, cudrNull extends boolean, cudrArray extends boolean> = T extends CudrBaseEntity ? EntityWrapper<T, cudrNull, cudrArray> : BaseWrapper<T, cudrNull, cudrArray>;
+type Wrapper<T, cudrNull extends boolean, cudrArray extends boolean> = WrapperPoint<T, cudrNull, cudrArray> & (T extends CudrBaseEntity ? EntityWrapper<T, cudrNull, cudrArray> : BaseWrapper<T, cudrNull, cudrArray>);
 
-type Filter<T> = {} | T extends Date ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T }
-  : T extends number ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T }
-  : T extends string ? { like: T } | { equal: T } | { in: T[] }
-  : T extends boolean ? { equal: boolean }
-  : never;
+type Filter<T> = T extends Date ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T } | {}
+  : T extends number ? { lessOrEqual: number } | { moreOrEqual: number } | { lessOrEqual: number, moreOrEqual: number } | { in: T[] } | { equal: T } | {}
+  : T extends string ? { like: string } | { equal: T } | { in: T[] } | {}
+  : T extends boolean ? { equal: boolean } | {}
+  : T extends ID ? { equal: T } | { in: T[] } | {}
+  : {};
 
+const ColumnPointSym = Symbol();
 interface ColumnPoint<T, cudrNull extends boolean, cudrArray extends boolean> {
   [ColumnPointSym]?: {
-    name: 'ColumnPoint',
     type: T,
-    isArray: cudrArray,
     isNull: cudrNull,
-  },
+    isArray: cudrArray,
+  }
+  (qb: SelectQueryBuilder<any>, tools: QueryTools<any>): void
 }
 
 interface QueryFuns<Entity extends CudrBaseEntity> {
   ref<T, isNull extends boolean, isArray extends boolean>(
-    path: (
-      (entity: EntityWrapper<Entity, false, false>) => EntityWrapper<T, isNull, isArray>
-    ) | (
-        (entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, isNull, isArray>
-      )
+    path: (entity: Wrapper<Entity, false, false>) => WrapperPoint<T, isNull, isArray>
   ): ColumnPoint<T, isNull, isArray>
   join<E extends CudrBaseEntity, Body extends TableQueryBody<E>>(
     subQuery: SubTableQuery<E, Body, Entity>
@@ -84,14 +89,14 @@ export type Simple<Entity extends CudrBaseEntity> = {
   }[keyof Entity]]: Entity[key]
 }
 type QueryResult<Body extends TableQueryBody<any>> = {
-  [key in keyof Body]: ReturnType<Body[key]> extends Wrapper<infer T, infer isNull, infer isArray> ?
+  [key in keyof Body]: ReturnType<Body[key]> extends ColumnPoint<infer T, infer isNull, infer isArray> ?
   T extends CudrBaseEntity ? Cover<Simple<T>, isNull, isArray> : Cover<T, isNull, isArray>
   : never
 }
 
+const SubTableQuerySym = Symbol();
 type SubTableQuery<Entity extends CudrBaseEntity, Body extends TableQueryBody<Entity>, Out extends CudrBaseEntity> = {
-  [subQuerySym]?: {
-    name: 'subQuery'
+  [SubTableQuerySym]: {
     klass: Entity
     body: Body,
     outType: Out,
@@ -111,7 +116,7 @@ interface TableQueryBuilder<Entity extends CudrBaseEntity, Body extends TableQue
       setNullOn(nullMode: "NULLS FIRST" | "NULLS LAST" | null | undefined): TableQueryBuilder<Entity, Body>
     }
   }
-  byArray<T>(path: (body: Body) => (funs: QueryFuns<Entity>) => ColumnPoint<T, false, true>): {
+  byArray<T>(path: (body: Body) => (funs: QueryFuns<Entity>) => ColumnPoint<T, boolean, true>): {
     filter: (mode: 'isEmpty' | 'notEmpty' | undefined | null) => TableQueryBuilder<Entity, Body>
   }
   query(manager: EntityManager, opts?: {
@@ -139,9 +144,9 @@ function builderAppend<Entity extends CudrBaseEntity<any>, Body extends TableQue
   };
 }
 
+const LeafNodeSym = Symbol();
 type LeafNode<T> = {
-  [RelationLeafSym]?: {
-    name: 'RelationLeaf',
+  [LeafNodeSym]: {
     type: T,
   }
 }
@@ -158,13 +163,10 @@ interface QueryTools<Entity extends CudrBaseEntity> {
   getParent(node: LeafNode<any>): RelationNode<CudrBaseEntity<any>>
   getParent(node: RelationNode<CudrBaseEntity>): RelationNode<CudrBaseEntity<any>> | undefined
   getParent(node: RelationNode<CudrBaseEntity> | LeafNode<any>): RelationNode<CudrBaseEntity<any>> | undefined
-  getNode<E extends CudrBaseEntity>(path: (entity: EntityWrapper<Entity, false, false>) => EntityWrapper<E, boolean, boolean>): RelationNode<E>
-  getNode<T>(path: (entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, boolean, boolean>): LeafNode<T>
-  getNode<T>(path:
-    | ((entity: EntityWrapper<Entity, false, false>) => BaseWrapper<T, boolean, boolean>)
-    | ((entity: EntityWrapper<Entity, false, false>) => EntityWrapper<T, boolean, boolean>)
-  ): LeafNode<T> | RelationNode<T>
+  getNode<T>(path: (entity: Wrapper<Entity, false, false>) => WrapperPoint<T, boolean, boolean>): T extends CudrBaseEntity ? RelationNode<T> : LeafNode<T>
   generateParamAlias(): string
+  addSelect<T>(node: LeafNode<T>, callback: (obj: T) => void): void
+  addSelect<Entity extends CudrBaseEntity>(node: RelationNode<Entity>, callback: (obj: Entity) => void): void
   build(qb: SelectQueryBuilder<any>): void
 }
 const getNodeSym = Symbol();
@@ -188,7 +190,6 @@ function createTools<Entity extends CudrBaseEntity>(klass: Type<Entity>): QueryT
   const aliasMap = new Map<RelationNode<CudrBaseEntity>, string>();
   aliasMap.set(rootRelationNode, `table_${tableIndex++}`);
   const parentNodeMap = new Map<RelationNode<CudrBaseEntity> | LeafNode<any>, RelationNode<CudrBaseEntity>>();
-  const selectMarkMap = new Map<LeafNode<any>, true>();
   const keyMap = new Map<RelationNode<CudrBaseEntity> | LeafNode<any>, string>();
   function isRelationNode<T extends CudrBaseEntity>(node: RelationNode<T> | LeafNode<any>): node is RelationNode<T> {
     return klassMap.has(node as any);
@@ -226,7 +227,6 @@ function createTools<Entity extends CudrBaseEntity>(klass: Type<Entity>): QueryT
     });
   }
   let paramsIndex = 0;
-  const coverFuns = new Array<(raw: any, out: any) => void>();
   return {
     isTable(node): node is RelationNode<CudrBaseEntity> {
       return isRelationNode(node);
@@ -264,26 +264,9 @@ function createTools<Entity extends CudrBaseEntity>(klass: Type<Entity>): QueryT
       const lastProxy = path(proxy);
       return lastProxy[getNodeSym];
     },
-    // markSelect(node: RelationNode<any> | LeafNode<any>, cb: (result: any, out: any) => void) {
-    //   // throw new Error('未实现markSelect')
-    //   if (this.isTable(node)) {
-    //     coverFuns.push((raw, out) => {
-
-    //     })
-    //     const klass = klassMap.get(node)!;
-    //     storage.filterColumns(klass).forEach((colMeta) => {
-    //       const proxy: any = createRelationNodeProxy(node, ['']);
-    //       const targetNode: LeafNode<any> = proxy[colMeta.propertyName][getNodeSym]
-    //       selectMarkMap.set(targetNode, true);
-    //     });
-
-    //   } else {
-    //     selectMarkMap.set(node, true);
-    //     coverFuns.push((raw, out) => {
-    //       cb(raw,out)
-    //     })
-    //   }
-    // },
+    addSelect(node: RelationNode<any> | LeafNode<any>, cb: (obj: any) => void) {
+      throw new Error('未实现addSelect')
+    },
     generateParamAlias() {
       return `params_${paramsIndex++}`;
     },
@@ -343,9 +326,9 @@ export function tableQuery<E extends CudrBaseEntity, Body extends TableQueryBody
                       const parentNode = tools.getParent(node)!;
                       targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
                     }
-                    if(assert === 'isNull'){
+                    if (assert === 'isNull') {
                       qb.andWhere(`${targetRefStr} is null`)
-                    }else if (){}
+                    } else if (true) { }
                     if (filter) {
                       if ('in' in filter && filter.in !== undefined && filter.in !== null) {
                         const paramAlias = tools.generateParamAlias();
@@ -368,7 +351,9 @@ export function tableQuery<E extends CudrBaseEntity, Body extends TableQueryBody
                         qb.andWhere(`${targetRefStr} = :${paramAlias}`, { [paramAlias]: filter.equal });
                       }
                     }
-                    return {};
+                    return (qb) => {
+                      throw new Error();
+                    }
                   },
                   join() {
                     throw new Error('未实现join')
@@ -395,7 +380,9 @@ export function tableQuery<E extends CudrBaseEntity, Body extends TableQueryBody
                       targetRefStr = `${tools.getAlias(parentNode)}.${tools.getKey(node)}`;
                     }
                     qb.orderBy(`${targetRefStr}`, sortMode || undefined, nullMode || undefined);
-                    return {};
+                    return (qb) => {
+                      throw new Error();
+                    }
                   },
                   join(a) {
                     throw new Error('未实现join')

@@ -6,7 +6,7 @@ const CudrBaseEntitySym = Symbol();
 
 @Entity()
 export class CudrBaseEntity<T = any> {
-  [CudrBaseEntitySym]?: {
+  [CudrBaseEntitySym]: {
     name: 'entity',
     type: T,
   }

@@ -1,5 +1,5 @@
 import { Controller, Post, Session, Body, Inject } from "@nestjs/common";
-import { RequirementLogEntity, UserEntity } from "@/business/entities";
+import { UserEntity, UserRequirementEntity } from "@/business/entities";
 import { AuthService } from "@/auth/auth.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { getManager, Repository } from "typeorm";
@@ -33,20 +33,21 @@ export class BusinessController {
 
   @Post('test')
   async test(@CurrentUserData({ allowUndefined: true }) user: UserEntity) {
-    await tableQuery(RequirementLogEntity, {
+    await tableQuery(UserRequirementEntity, {
       entity: ({ ref }) => ref((e) => e),
-      requirement: ({ ref }) => ref((e) => e.requirement),
-      // requirementsArrayCount: ({ join }) => join(r1).count(),
-      // requirementsTestSum: ({ join }) => join(r1).sum(e => e.num),
-      logName: ({ ref }) => ref(e => e.name),
-      userName: (({ ref }) => ref((e) => e.requirement.user.name)),
+      requirement: ({ ref }) => ref((e) => e.user.group.id),
+      userName: ({ ref }) => ref(e => e.user.name),
+      usersName: (({ ref }) => ref((e) => e.user.requirements.user.name)),
     })
-      .byProperty((e) => e.requirement).filter(null).assert(false)
-      .byProperty((e) => e.logName).filter({ like: '%aaa%' }).assert(null)
-      // .byProperty((e) => e.requirementsArrayCount).filter({ moreOrEqual: 1 }).assertNull(null)
-      // .byProperty((e) => e.logName).sort('DESC').setNullOn(null)
+      .byProperty((e) => e.requirement).filter(null).assert('isNull')
+      .byProperty((e) => e.userName).filter({ like: '%aaa%' }).assert('notNull')
+      .byArray((e) => e.usersName).filter('isEmpty')
       .query(getManager()).then(([result]) => {
-        const requirment = result.requirement;
+        const a2 = result.entity;
+        const a1 = result.requirement;
+        const a3 = result.userName;
+        const a4 = result.usersName;
+        a2.date
       });
     return user;
   }
