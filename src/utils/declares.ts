@@ -1,15 +1,3 @@
-const JSONStrSym = Symbol();
-
-interface JSONStr<T> extends String {
-  [JSONStrSym]: {
-    name: 'JSONStr',
-    type: T,
-  }
-}
-declare interface JSON {
-  parse<T>(jsonStr: JSONStr<T>): T
-}
-
 declare interface Number {
   times<T>(fun: (i: number) => T): T[];
 }
@@ -23,26 +11,28 @@ Number.prototype.times = function (this: number, fun) {
   return ret;
 }
 declare interface Array<T> {
-  duplicateRemoval(fun?: (a: T) => any): T[]
+  duplicateRemoval(fun: (a: T) => any): T[]
+  groupBy<G>(groupFun: (obj: T) => G): [G, T[]][]
 }
 Array.prototype.duplicateRemoval = function (this, fun) {
-  const set = new Set<any>();
-  const saved: any[] = [];
-  if (fun) {
-    this.forEach((a) => {
-      const key = fun(a);
-      if (!set.has(key)) {
-        saved.push(a);
-        set.add(key);
-      }
-    });
-  } else {
-    this.forEach((a) => {
-      if (!set.has(a)) {
-        saved.push(a);
-        set.add(a);
-      }
-    });
-  }
-  return saved;
+  const map = new Set();
+  const ret: any[] = [];
+  this.forEach((t) => {
+    const key = fun(t);
+    if (!map.has(key)) {
+      map.add(key);
+      ret.push(t);
+    }
+  });
+  return ret;
 }
+Array.prototype.groupBy = function groupBy<T, G>(this: T[], groupFun: (obj: T) => G): [G, T[]][] {
+  const ret = new Map<G, T[]>();
+  this.forEach((obj) => {
+    const key = groupFun(obj);
+    if (!ret.has(key)) { ret.set(key, []) }
+    const arr = ret.get(key)!;
+    arr.push(obj);
+  });
+  return [...ret.entries()];
+};

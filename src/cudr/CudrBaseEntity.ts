@@ -5,7 +5,7 @@ import { Entity } from "typeorm";
 const CudrBaseEntitySym = Symbol();
 
 @Entity()
-export class CudrBaseEntity<T extends string = any> {
+export class CudrBaseEntity<T = any> {
   [CudrBaseEntitySym]?: {
     name: 'entity',
     type: T,
