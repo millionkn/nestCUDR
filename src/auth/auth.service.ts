@@ -5,6 +5,7 @@ import { ID, UnpackId } from "@/utils/entity";
 import { Socket } from "socket.io";
 import { CustomerError } from "@/customer-error";
 import { InjectRepository } from "@nestjs/typeorm";
+import { Session as SessionType } from 'express-session';
 
 const socketData = new Map<string, any>();
 
@@ -32,9 +33,9 @@ export class AuthService<T extends { id: ID }> {
     }
   }
   async login(
-    target: Socket | Express.Session,
+    target: Socket | SessionType,
     tableName: UnpackId<T['id']>,
-    entity: { id: T['id'] } | undefined,
+    entity: { id: T['id'] },
     password: string,
     dataOrFun?: any,
   ): Promise<void> {
@@ -44,7 +45,7 @@ export class AuthService<T extends { id: ID }> {
     let md5Result = Md5.hashStr(`${account.salt}${password}`) as string;
     if (md5Result !== account.password) { throw new CustomerError(`用户名或密码错误`); }
     if ('cookie' in target) {
-      target.currentUserState = {
+      (target as any).currentUserState = {
         id: entity.id,
         data: dataOrFun === undefined ? {} : typeof dataOrFun === 'function' ? await dataOrFun() : dataOrFun,
       }
@@ -60,11 +61,11 @@ export class AuthService<T extends { id: ID }> {
       throw new Error(`无效的登录对象`);
     }
   }
-  static getLoginState(target: Socket | Express.Session | undefined) {
+  static getLoginState(target: Socket | SessionType) {
     let ret: { id?: ID, data?: any } | undefined;
     if (target) {
       if ('cookie' in target) {
-        ret = target.currentUserState;
+        ret = (target as any).currentUserState;
       } else if ('client' in target) {
         ret = socketData.get(target.id);
       } else {
