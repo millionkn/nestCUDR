@@ -38,7 +38,7 @@ type EntityWrapper<T extends CudrBaseEntity, cudrNull extends boolean, cudrArray
 
 type Wrapper<T, cudrNull extends boolean, cudrArray extends boolean> = WrapperPoint<T, cudrNull, cudrArray> & (T extends CudrBaseEntity ? EntityWrapper<T, cudrNull, cudrArray> : BaseWrapper<T, cudrNull, cudrArray>);
 
-type Filter<T> = T extends Date ? { lessOrEqual: T } | { moreOrEqual: T } | { lessOrEqual: T, moreOrEqual: T } | {}
+type Filter<T> = T extends Date ? { lessOrEqual: Date } | { moreOrEqual: Date } | { lessOrEqual: Date, moreOrEqual: Date } | {}
   : T extends number ? { lessOrEqual: number } | { moreOrEqual: number } | { lessOrEqual: number, moreOrEqual: number } | { in: T[] } | { equal: T } | {}
   : T extends string ? { like: string } | { equal: T } | { in: T[] } | {}
   : T extends boolean ? { equal: boolean } | {}
@@ -67,9 +67,17 @@ interface QueryFuns<Entity extends CudrBaseEntity> {
       path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<T, boolean, boolean>,
     ): ColumnPoint<number, false, false>
     sum(
-      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<number, false, false>,
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<number, boolean, false>,
     ): ColumnPoint<number, false, false>
-    ref<T>(
+    max(
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<number, boolean, false>,
+    ): ColumnPoint<number, false, false>
+    min(
+      path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<number, boolean, false>,
+    ): ColumnPoint<number, false, false>
+    slice<T>(
+      skip: number,
+      take: number,
       path: (body: Body) => (funs: QueryFuns<E>) => ColumnPoint<T, boolean, boolean>,
     ): ColumnPoint<T, false, true>
   }
@@ -107,7 +115,7 @@ interface TableQueryBuilder<Entity extends CudrBaseEntity, Body extends TableQue
   factory: (
     qb: SelectQueryBuilder<any>,
     tools: QueryTools<Entity>,
-  ) => Promise<void>,
+  ) => void,
   byProperty<T, isNull extends boolean>(path: (body: Body) => (funs: QueryFuns<Entity>) => ColumnPoint<T, isNull, false>): {
     filter(filter: Filter<T> | null | undefined): {
       assert(value: 'notNull' | 'allowNull' | 'isNull'): TableQueryBuilder<Entity, Body>
@@ -133,13 +141,13 @@ function builderAppend<Entity extends CudrBaseEntity<any>, Body extends TableQue
   appendFun: (
     qb: SelectQueryBuilder<any>,
     tools: QueryTools<Entity>,
-  ) => Promise<void>,
+  ) => void,
 ): TableQueryBuilder<Entity, Body> {
   return {
     ...builder,
-    factory: async (...args) => {
-      await builder.factory(...args);
-      await appendFun(...args);
+    factory: (...args) => {
+      builder.factory(...args);
+      appendFun(...args);
     },
   };
 }

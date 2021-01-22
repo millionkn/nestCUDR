@@ -1,5 +1,5 @@
 const CudrBaseEntitySym = Symbol();
-export class CudrBaseEntity<T = any> {
+export class BaseEntityKlass<T = any> {
   [CudrBaseEntitySym]: {
     name: 'entity',
     type: T,
