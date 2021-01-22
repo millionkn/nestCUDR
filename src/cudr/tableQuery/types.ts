@@ -47,3 +47,7 @@ type TKeys<Entity extends BaseEntityKlass> = {
 type Simple<T> = T extends BaseEntityKlass ? Pick<T, TKeys<T>> : T
 
 export type Cover<T, isNull, isArray> = isArray extends true ? Simple<T>[] : isNull extends true ? Simple<T> | null : Simple<T>
+
+export type QueryResult<Body extends TableQueryBody> = {
+  [key in keyof Body]: Body[key] extends ColumnPoint<infer Type, infer isNull, infer isArray> ? Cover<Type, isNull, isArray> : never
+}

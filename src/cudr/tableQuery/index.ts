@@ -1,7 +1,7 @@
 import { BaseEntityKlass } from "./BaseEntityKlass";
 import { Type } from "@nestjs/common";
-import { TableQueryBuilder, QueryResult } from "./TableQueryBuilder";
-import { TableQueryBody, Wrapper } from "./types";
+import { TableQueryBuilder } from "./TableQueryBuilder";
+import { TableQueryBody, Wrapper, QueryResult } from "./types";
 import { ColumnPoint } from "./ColumnPoint";
 import { ExtraTableQuery } from "./ExtraTableQuery";
 

@@ -7,8 +7,7 @@ type OrderFun = (order: SelectQueryBuilder<any>['addOrderBy'], ref: string) => v
 export type ColumnPoint<T, isNull extends boolean, isArray extends boolean> = NoInterface<{
   addFilter(fun: FilterFun): void
   addOrder(fun: OrderFun): void
-  getFilterArray(): FilterFun[]
-  getOrderArray(): OrderFun[]
+  buildQuery(qb: SelectQueryBuilder<any>): void
   mapper(raw: any): Cover<T, isNull, isArray>
   isArray(): isArray
 }>

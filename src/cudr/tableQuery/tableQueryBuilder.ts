@@ -1,12 +1,10 @@
 import { ColumnPoint } from "./ColumnPoint";
 import { EntityManager } from "typeorm";
 import { BaseEntityKlass } from "./BaseEntityKlass";
-import { Wrapper, Filter, TableQueryBody, Cover } from "./types";
+import { Wrapper, Filter, TableQueryBody, QueryResult } from "./types";
 import { ExtraTableQuery } from "./ExtraTableQuery";
 
-export type QueryResult<Body extends TableQueryBody> = {
-  [key in keyof Body]: Body[key] extends ColumnPoint<infer Type, infer isNull, infer isArray> ? Cover<Type, isNull, isArray> : never
-}
+
 
 export type TableQueryBuilder<Entity extends BaseEntityKlass, Body extends TableQueryBody> = {
   byProperty<T, isNull extends boolean>(path: (body: Body) => ColumnPoint<T, isNull, false>): {
