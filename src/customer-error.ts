@@ -1,5 +1,5 @@
 export class CustomerError extends Error {
-  constructor(message: any) {
+  constructor(message?: any) {
     super(message);
     if (typeof message === 'object') {
       this.messageBody = message;

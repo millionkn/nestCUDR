@@ -6,6 +6,15 @@ const dataSym = Symbol();
 export type NoInterface<T> = {
   [dataSym]: T
 }
+export function NoInterface<T>(data: T): NoInterface<T> {
+  return {
+    [dataSym]: data,
+  }
+}
+export type UnpackInterface<T extends NoInterface<any>> = T[typeof dataSym]
+export function UnpackInterface<T>(target: NoInterface<T>): T {
+  return target[dataSym];
+}
 
 type BaseWrapper<T, isNull extends boolean, isArray extends boolean> = NoInterface<{
   type: T,
@@ -29,8 +38,8 @@ export type Filter<T> = null | undefined | (T extends Date ? { lessOrEqual: Date
   : T extends ID ? { equal: T } | { in: T[] } | {}
   : {});
 
-export type TableQueryBody = {
-  [key: string]: ColumnPoint<any, boolean, boolean>
+export type QueryTable = {
+  [key: string]: NoInterface<ColumnPoint<any, boolean, boolean>>
 }
 
 type TKeys<Entity extends BaseEntityKlass> = {
@@ -48,6 +57,6 @@ type Simple<T> = T extends BaseEntityKlass ? Pick<T, TKeys<T>> : T
 
 export type Cover<T, isNull, isArray> = isArray extends true ? Simple<T>[] : isNull extends true ? Simple<T> | null : Simple<T>
 
-export type QueryResult<Body extends TableQueryBody> = {
-  [key in keyof Body]: Body[key] extends ColumnPoint<infer Type, infer isNull, infer isArray> ? Cover<Type, isNull, isArray> : never
+export type QueryResult<Body extends QueryTable> = {
+  [key in keyof Body]: Body[key] extends NoInterface<ColumnPoint<infer Type, infer isNull, infer isArray>> ? Cover<Type, isNull, isArray> : never
 }
