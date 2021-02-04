@@ -1,4 +1,4 @@
-import { tableQuery } from "./";
+import { tableQuery } from ".";
 import { BaseEntityKlass } from "./BaseEntityKlass";
 
 class A extends BaseEntityKlass<'A'>{
@@ -38,7 +38,6 @@ const builderA = tableQuery(A, {
 }).query({} as any, {} as any).then(([result]) => {
   result.dName
   result.aNum
-  result.dCount
   const [c] = result.cExtra;
 
 

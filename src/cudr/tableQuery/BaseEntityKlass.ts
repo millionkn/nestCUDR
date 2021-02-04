@@ -1,6 +1,6 @@
-const CudrBaseEntitySym = Symbol();
+const BaseEntitySym = Symbol();
 export class BaseEntityKlass<T> {
-  [CudrBaseEntitySym]: {
+  [BaseEntitySym]: {
     name: 'entity',
     type: T,
   }
