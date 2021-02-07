@@ -1,7 +1,7 @@
 import { BaseEntityKlass } from "./BaseEntityKlass";
 import { Type } from "@nestjs/common";
 import { EntityManager, SelectQueryBuilder, getMetadataArgsStorage } from "typeorm";
-import { NoPropertyError, PathResolveError, EmptyArrayError, TODOError } from "./errors";
+import { NoPropertyError, PathResolveError, EmptyArrayError, TODOError, WrongRelationError } from "./errors";
 import { isNullOrUndefined } from "util";
 import { getPathStrArray } from "@/utils/getPathStrArray";
 
@@ -115,7 +115,6 @@ type ColumnPointFuns<Entity extends BaseEntityKlass<any>> = {
 
 type ExtraTable<Entity extends BaseEntityKlass<any>, Template extends TableTemplate<Entity>, JoinTarget extends BaseEntityKlass<any>> = Hide<{
   klass: Type<Entity>,
-  joinTarget: Type<JoinTarget>,
   joinPath: (e: Wrapper<Entity, false, false>) => WP<JoinTarget, boolean, boolean>,
   template: Template,
 }>
@@ -166,7 +165,6 @@ type TableBuilder<Entity extends BaseEntityKlass<any>, Template extends TableTem
   }): Promise<QueryResult<Entity, Template>[]>;
   count(manager: EntityManager): Promise<number>;
   asExtra<E extends BaseEntityKlass<any>>(
-    klass: Type<E>,
     joinPath: (e: Wrapper<Entity, false, false>) => WP<E, boolean, boolean>,
   ): ExtraTable<Entity, Template, E>
 }
@@ -258,17 +256,17 @@ class TableTree<Entity extends BaseEntityKlass<any>> {
 class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends TableTemplate<Entity>>{
   constructor(
     private manager: EntityManager,
-    klass: Type<Entity>,
+    private klass: Type<Entity>,
     template: Template,
   ) {
     this.qb = manager.createQueryBuilder();
-    const tableTree = new TableTree(klass, this.qb);
+    this.tableTree = new TableTree(klass, this.qb);
     for (const property in template) {
       if (template.hasOwnProperty(property)) {
         let activeFun = () => { };
         this.body[property] = template[property]({
           ref: (path) => {
-            const ret = tableTree.resolvePath(path);
+            const ret = this.tableTree.resolvePath(path);
             const info = ret[hideSym];
             if (info.type === 'column') {
               activeFun = () => {
@@ -281,7 +279,7 @@ class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends Ta
               activeFun = () => {
                 this.syncCallback.push((output) => output[property] = {});
                 info.keys.forEach((key) => {
-                  const columnInfo = tableTree.resolvePath((wrapper) => (path(wrapper) as any)[key])[hideSym];
+                  const columnInfo = this.tableTree.resolvePath((wrapper) => (path(wrapper) as any)[key])[hideSym];
                   this.qb.addSelect(columnInfo.ref, columnInfo.alias);
                   this.syncCallback.push((output, raw) => {
                     output[property][key] = raw[columnInfo.alias];
@@ -293,7 +291,60 @@ class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends Ta
             }
             return ret;
           },
-          join: (extraTable) => {
+          join: <E extends BaseEntityKlass<any>, Template extends TableTemplate<E>>(extraTable: ExtraTable<E, Template, Entity>) => {
+            activeFun = () => {
+              this.asyncCallback.push(async (raws) => {
+                const template = {} as any;
+                const cb = new Array<(output: any, renamed: any) => void>();
+                Object.keys(extraTable[hideSym].template).forEach((key, index) => {
+                  template[`column_${index}`] = extraTable[hideSym].template[key];
+                  cb.push((output, renamed) => output[key] = renamed[`column_${index}`]);
+                });
+                this.primaryColumns.forEach((pc, index) => {
+                  template[`pc_${index}`] = (funs: ColumnPointFuns<E>) => funs.ref((e) => (extraTable[hideSym].joinPath(e) as any)[pc]);
+                });
+                const subBuilder = new TableQueryBuilder(this.manager, extraTable[hideSym].klass, template);
+                subBuilder.sequenceIn(
+                  this.primaryColumns.map((pc, index) => {
+                    return (t: any) => t[`pc_${index}`];
+                  }),
+                  raws.map((raw) => this.primaryColumns.map((pc, index) => raw[`primary_${index}`]))
+                );
+                const resultGetter = await subBuilder.query().then((renamedResults) => {
+                  const subResultsGroupCache = new Map<any, any>();
+                  renamedResults.forEach((renamed) => {
+                    let targetCache = subResultsGroupCache;
+                    this.primaryColumns.forEach((pc, index, arr) => {
+                      const key = renamed[`pc_${index}`];
+                      if (arr.length === index + 1) {
+                        if (!targetCache.has(key)) {
+                          targetCache.set(key, []);
+                        }
+                        const subResult: any = {};
+                        cb.forEach((fun) => fun(subResult, renamed))
+                        targetCache.get(key).push(subResult);
+                      } else {
+                        if (!targetCache.has(key)) {
+                          targetCache.set(key, new Map());
+                        }
+                        targetCache = targetCache.get(key);
+                      }
+                    });
+                  });
+                  return (raw: any) => {
+                    let targetCache = subResultsGroupCache;
+                    for (let index = 0; index < this.primaryColumns.length; index++) {
+                      targetCache = targetCache.get(raw[`primary_${index}`]);
+                      if (!targetCache) { return []; }
+                    }
+                    return targetCache as any as any[];
+                  }
+                });
+                this.syncCallback.push((output, raw) => {
+                  output[property] = resultGetter(raw);
+                })
+              })
+            }
             return {
               [hideSym]: {
                 type: 'async',
@@ -316,8 +367,10 @@ class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends Ta
   }
   private qb: SelectQueryBuilder<any>;
   private body: QueryTableBody<Entity, Template> = {} as QueryTableBody<Entity, Template>;
+  private tableTree: TableTree<Entity>;
   private paramIndex = 1;
-  private syncCallback = Array<(output: any, raw: any) => void>();
+  private syncCallback = new Array<(output: any, raw: any) => void>();
+  private asyncCallback = new Array<(raws: any[]) => Promise<void>>();
   private activeFun = new Map<() => void, any>();
   andWhere(
     columnFun: (body: QueryTableBody<Entity, Template>) => SyncColumn<any, boolean>,
@@ -341,17 +394,26 @@ class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends Ta
     const paramAlias = `params_${this.paramIndex++}`;
     this.qb.andWhere(`(${columnRefs.join(',')}) in (:...${paramAlias})`, { [paramAlias]: sequenceArr })
   }
+  private primaryColumns = getMetadataArgsStorage().filterColumns(this.klass).filter((args) => args.options.primary === true).map((args) => args.propertyName);
   async query(opts?: {
     skip?: number,
     take?: number
   }): Promise<any[]> {
     if (opts && opts.take && opts.take <= 0) { return []; }
     this.activeFun.forEach((column, active) => { active(); });
+    if (this.asyncCallback.length !== 0) {
+      this.primaryColumns.forEach((pc, index) => {
+        const columnInfo = this.tableTree.resolvePath((w) => (w as any)[pc])[hideSym];
+        this.qb.addSelect(columnInfo.ref, `primary_${index}`);
+      });
+    }
     if (opts) {
       if (opts.skip && opts.skip > 0) { this.qb.skip(opts.skip); }
       if (opts.take && opts.take > 0) { this.qb.take(opts.take); }
     }
     const arr = await this.qb.getRawMany();
+    if (arr.length === 0) { return []; }
+    await Promise.all(this.asyncCallback.map(async (cb) => cb(arr)));
     return arr.map((raw) => {
       const ret = {};
       this.syncCallback.forEach((fun) => fun(ret, raw));
@@ -359,8 +421,8 @@ class TableQueryBuilder<Entity extends BaseEntityKlass<any>, Template extends Ta
     });
   }
   async count(): Promise<number> {
-    this.activeFun.forEach((value) => { value() });
-    return await this.qb.getCount();
+    this.activeFun.forEach((column, active) => { active() });
+    return await this.qb.select(`count(*)`, `count`).getRawOne().then((raw) => raw.count);
   }
 }
 
@@ -452,11 +514,20 @@ function subTableQuery<
         }
       }
     },
-    asExtra(joinTargetKlass, joinPath) {
+    asExtra(joinPath) {
+      let currentKlass: Function | string = klass;
+      getPathStrArray(joinPath).forEach((property, index, arr) => {
+        const args = getMetadataArgsStorage().filterRelations(currentKlass).find((a) => a.propertyName === property);
+        if (!args) { throw new PathResolveError(`(base)->${arr.slice(0, index + 1).join('->')}`); }
+        if (args.relationType === 'one-to-many') {
+          throw new WrongRelationError(`(base)->${arr.slice(0, index + 1).join('->')}`);
+        } else {
+          currentKlass = typeof args.type === 'string' ? args.type : args.type.prototype ? args.type : args.type();
+        }
+      })
       return {
         [hideSym]: {
           klass,
-          joinTarget: joinTargetKlass,
           joinPath,
           template,
         }

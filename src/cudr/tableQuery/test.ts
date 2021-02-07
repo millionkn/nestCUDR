@@ -25,7 +25,7 @@ class D extends BaseEntityKlass<'D'>{
 
 const extra = tableQuery(C, {
   cName: ({ ref }) => ref((w) => w.cName)
-}).asExtra(A, (e) => e.cSuperaA)
+}).asExtra((e) => e.cSuperaA)
 
 const builderA = tableQuery(A, {
   dName: ({ ref }) => ref((w) => w.aSuperD.dName),
