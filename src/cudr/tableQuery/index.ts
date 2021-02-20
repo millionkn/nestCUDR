@@ -88,9 +88,9 @@ type Simple<T> = T extends BaseEntityKlass<any> ? Pick<T, TKeys<T>> : T
 
 type Cover<T, isNull, isArray> = isArray extends true ? Simple<T>[] : isNull extends true ? Simple<T> | null : Simple<T>
 
-type QueryResult<Entity extends BaseEntityKlass<any>, Template extends TableTemplate<Entity>> = {
+type QueryResult<Entity extends BaseEntityKlass<any>, Template extends TableTemplate<Entity>> = any extends any ? {
   [key in keyof Template]: NonNullable<ReturnType<Template[key]>[typeof hideSym]['resultType']>
-}
+} : never;
 
 type ColumnPointFuns<Entity extends BaseEntityKlass<any>> = {
   ref<T, isNull extends boolean>(

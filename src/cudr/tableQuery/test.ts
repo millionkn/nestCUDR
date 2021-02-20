@@ -1,4 +1,4 @@
-import { tableQuery } from "./";
+import { tableQuery } from "./index";
 import { BaseEntityKlass } from "./BaseEntityKlass";
 
 class A extends BaseEntityKlass<'A'>{

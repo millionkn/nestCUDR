@@ -6,7 +6,7 @@ import { getManager, Repository } from "typeorm";
 import { CustomerError } from "@/customer-error";
 import { Session as SessionType } from 'express-session';
 import { CurrentUserData, setCurrentUserData } from "@/sessionCurrentUser";
-import { tableQuery } from "@/cudr/tableQuery";
+import { tableQuery } from "@/cudr/tableQuery/index";
 
 
 @Controller('api')
@@ -33,22 +33,9 @@ export class BusinessController {
 
   @Post('test')
   async test(@CurrentUserData({ allowUndefined: true }) user: UserEntity) {
-    await tableQuery(UserRequirementEntity, {
+    return await tableQuery(UserRequirementEntity, {
       entity: ({ ref }) => ref((e) => e),
-      requirement: ({ ref }) => ref((e) => e.user.group.id),
-      userName: ({ ref }) => ref(e => e.user.name),
-      usersName: (({ ref }) => ref((e) => e.user.requirements.user.name)),
-    })
-      .byProperty((e) => e.requirement).filter(null).assert('isNull')
-      .byProperty((e) => e.userName).filter({ like: '%aaa%' }).assert('notNull')
-      .byArray((e) => e.usersName).filter('isEmpty')
-      .query(getManager()).then(([result]) => {
-        const a2 = result.entity;
-        const a1 = result.requirement;
-        const a3 = result.userName;
-        const a4 = result.usersName;
-        a2.date
-      });
-    return user;
+      requirement: ({ ref }) => ref((e) => e.user),
+    }).query(getManager())
   }
 }
