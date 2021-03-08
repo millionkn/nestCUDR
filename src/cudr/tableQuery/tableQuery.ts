@@ -9,10 +9,10 @@ export function tableQuery<Entity extends CudrBaseEntity, Template extends { [ke
 
 class A implements CudrBaseEntity<'A'>{
   id!: ID<'A'>;
-  arr!: number[]
+  arr!: number[] | null
   a!: A
 }
 
 tableQuery(A, {
-  test: ref((e) => e.a.a)
+  test: ref((e) => e.a.arr),
 })

@@ -6,8 +6,8 @@ export const ref = <Entity extends CudrBaseEntity, T, isNull extends boolean, is
   fun: (e: Wrapper<Entity, false, false>) => WrapperNode<T, isNull, isArray>
 ): ColumnPoint<Entity, isArray extends true ? T[] : isNull extends true ? T | null : T> => {
   return ColumnPoint((klass) => {
-    return (raws) => (id) => {
-      const target = raws.find((raw) => raw.id === id);
+    return (mappedRaws) => (id) => {
+      const target = mappedRaws.find((raw) => raw.id === id);
       if (!target) { throw new Error(); }
       return target;
     }
